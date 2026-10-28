@@ -1,0 +1,38 @@
+@import 'tailwindcss';
+
+/* Full design system lands in M2; these are the §3.1 tokens. */
+:root {
+  --paper: #f6f4ef;
+  --paper-2: #efece5;
+  --line: #e1ddd4;
+  --ink: #0b0b0b;
+  --ink-2: #2b2a28;
+  --muted: #6b675f;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #0b0b0b;
+    --paper-2: #151514;
+    --line: #2a2926;
+    --ink: #f6f4ef;
+    --ink-2: #d9d5cc;
+    --muted: #a39e94;
+  }
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper-2: var(--paper-2);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --font-serif: Georgia, serif;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+}

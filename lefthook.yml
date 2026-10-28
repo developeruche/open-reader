@@ -1,0 +1,12 @@
+pre-commit:
+  parallel: true
+  commands:
+    eslint:
+      glob: '*.{ts,tsx,js}'
+      run: pnpm eslint {staged_files}
+    prettier:
+      glob: '*.{ts,tsx,js,json,md,css,yml,html}'
+      run: pnpm prettier --check {staged_files}
+    unit:
+      glob: 'src/**/*.{ts,tsx}'
+      run: pnpm vitest related --run {staged_files}

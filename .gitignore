@@ -1,0 +1,35 @@
+# Dependencies and build output
+node_modules
+.output
+.wxt
+stats.html
+stats-*.json
+web-ext.config.ts
+*.zip
+
+# Model weights and user data: never commit
+public/models/
+models/cache/
+*.onnx
+*.onnx.json
+*.bin
+*.safetensors
+
+# Test output
+test-results/
+playwright-report/
+blob-report/
+coverage/
+tests/e2e/.auth/
+quality/.venv/
+quality/out/
+spikes/**/out/
+
+# Logs and editor files
+logs
+*.log
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.sw?

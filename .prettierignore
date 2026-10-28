@@ -1,0 +1,11 @@
+.output
+.wxt
+coverage
+playwright-report
+test-results
+pnpm-lock.yaml
+public
+spikes/**/out
+tests/fixtures/**/*.json
+PLAN.md
+.claude

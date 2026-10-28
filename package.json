@@ -19,9 +19,16 @@
     "postinstall": "wxt prepare",
     "icons": "tsx scripts/make-icons.ts",
     "prepare": "lefthook install",
-    "licenses:check": "tsx scripts/check-licenses.ts"
+    "licenses:check": "tsx scripts/check-licenses.ts",
+    "spikes:build": "wxt build spikes/extension",
+    "spikes:run": "tsx spikes/run.ts",
+    "spikes:setup": "tsx spikes/setup.ts"
   },
   "dependencies": {
+    "@diffusionstudio/piper-wasm": "1.0.0",
+    "@mozilla/readability": "0.6.0",
+    "onnxruntime-web": "1.31.1",
+    "pdfjs-dist": "6.4.299",
     "react": "19.3.1",
     "react-dom": "19.3.1"
   },
@@ -40,6 +47,7 @@
     "globals": "17.13.0",
     "happy-dom": "21.0.4",
     "lefthook": "2.2.2",
+    "pdf-lib": "1.17.1",
     "prettier": "3.9.10",
     "tailwindcss": "4.3.3",
     "tsx": "4.23.15",

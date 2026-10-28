@@ -3,7 +3,7 @@
 ## Milestones
 
 - [x] M0: Bootstrap, tooling and skills
-- [ ] M1: Feasibility spikes and ADRs
+- [x] M1: Feasibility spikes and ADRs
 - [ ] M2: Design system and app shells
 - [ ] M3: Document model and text pipeline
 - [ ] M4: Audio pipeline and player core
@@ -44,9 +44,19 @@ Installed into `.claude/skills/` by copying from pinned commits after reading ev
 
 ## Known issues
 
-- None yet.
+- Kokoro fp16 on WebGPU outputs silence on Apple M3 Max (ADR 0003). The benchmark must reject silent output.
+- `navigator.storage.persist()` returns false in a fresh profile; show it on the Storage page (ADR 0008).
+
+## Spikes (M1)
+
+Throwaway code under `spikes/` (excluded from build, lint and typecheck). Reproduce with
+`pnpm spikes:setup && pnpm spikes:build && pnpm spikes:run`; results land in `spikes/out/` (gitignored).
 
 ## Manual QA scripts
+
+### M1 (optional listening)
+
+1. After `pnpm spikes:run kokoro piper`, play the WAVs in `spikes/out/` (Kokoro `af_heart`, Piper lessac high/medium).
 
 ### M0
 

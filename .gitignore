@@ -33,3 +33,7 @@ logs
 .idea
 .DS_Store
 *.sw?
+spikes/extension/public/ort/
+spikes/extension/public/piper/
+spikes/extension/public/headtts/
+spikes/extension/public/pdfjs/

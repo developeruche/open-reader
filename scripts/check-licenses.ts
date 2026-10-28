@@ -20,6 +20,7 @@ const ALLOWED = new Set([
   'MIT-0',
   '(MIT OR CC0-1.0)',
   '(MIT OR Apache-2.0)',
+  '(MIT AND Zlib)',
   '(BSD-2-Clause OR MIT OR Apache-2.0)',
 ]);
 /** Packages allowed despite a license outside the list, with the reason. */

@@ -8,3 +8,10 @@
 
 E2E uses a persistent Chromium context with `--load-extension`; the extension ID comes from the
 service worker URL.
+
+## Text pipeline tests
+
+- `tests/unit/core/text/golden.test.ts`: 335 display → spoken cases, including the PSBT audiobook
+  pronunciations. Add a case for every pronunciation bug found.
+- `tests/unit/core/text/offsetMap.property.test.ts`: fast-check properties over random token mixes.
+- Coverage gates: `src/core/**` ≥ 90% lines/functions/statements, ≥ 85% branches; overall ≥ 75% lines.

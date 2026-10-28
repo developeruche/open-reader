@@ -12,6 +12,8 @@ export default defineConfig({
       include: ['src/**'],
       exclude: ['src/entrypoints/**', 'src/**/*.d.ts'],
       thresholds: {
+        lines: 75,
+        statements: 75,
         'src/core/**': { lines: 90, functions: 90, branches: 85, statements: 90 },
       },
     },

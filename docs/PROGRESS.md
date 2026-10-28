@@ -5,7 +5,7 @@
 - [x] M0: Bootstrap, tooling and skills
 - [x] M1: Feasibility spikes and ADRs
 - [x] M2: Design system and app shells
-- [ ] M3: Document model and text pipeline
+- [x] M3: Document model and text pipeline
 - [ ] M4: Audio pipeline and player core
 - [ ] M5: Extension runtime, hosts and messaging
 - [ ] M6: Model manager and the default engine (Kokoro)

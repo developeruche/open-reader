@@ -4,7 +4,7 @@
 
 - [x] M0: Bootstrap, tooling and skills
 - [x] M1: Feasibility spikes and ADRs
-- [ ] M2: Design system and app shells
+- [x] M2: Design system and app shells
 - [ ] M3: Document model and text pipeline
 - [ ] M4: Audio pipeline and player core
 - [ ] M5: Extension runtime, hosts and messaging
@@ -44,6 +44,9 @@ Installed into `.claude/skills/` by copying from pinned commits after reading ev
 
 ## Known issues
 
+- Reader view renders every block; for very long pages consider `content-visibility: auto` or
+  virtualization in M8 after measuring (Web Interface Guidelines: lists > 50 items).
+
 - Kokoro fp16 on WebGPU outputs silence on Apple M3 Max (ADR 0003). The benchmark must reject silent output.
 - `navigator.storage.persist()` returns false in a fresh profile; show it on the Storage page (ADR 0008).
 
@@ -53,6 +56,16 @@ Throwaway code under `spikes/` (excluded from build, lint and typecheck). Reprod
 `pnpm spikes:setup && pnpm spikes:build && pnpm spikes:run`; results land in `spikes/out/` (gitignored).
 
 ## Manual QA scripts
+
+### M2
+
+1. `pnpm build`, reload the unpacked extension, click the toolbar icon: the side panel shows the
+   transport, Reader / Outline / Settings tabs and the engine footer (mock data).
+2. Press Space, then J/K, − and =: playback, sentence and speed change; the word cursor glides.
+3. Settings tab → Theme → Dark: the panel turns dark; open the options page (right-click the icon →
+   Options): it is dark too.
+4. Resize the side panel between its narrowest and widest: nothing overflows.
+5. Open `chrome-extension://<id>/reader.html` and `onboarding.html` and tab through every control.
 
 ### M1 (optional listening)
 

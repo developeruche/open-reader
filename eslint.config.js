@@ -34,6 +34,11 @@ export default tseslint.config(
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
+      // Non-breaking spaces in copy ("326 MB") are deliberate typography.
+      'no-irregular-whitespace': [
+        'error',
+        { skipStrings: true, skipTemplates: true, skipJSXText: true },
+      ],
     },
   },
   {
@@ -43,6 +48,10 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       ...jsxA11y.flatConfigs.recommended.rules,
     },
+  },
+  {
+    files: ['tests/**/*.{ts,tsx}'],
+    rules: { '@typescript-eslint/no-non-null-assertion': 'off' },
   },
   {
     // Rule 4 of the plan: chrome.* lives in src/platform only.

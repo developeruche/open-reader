@@ -8,6 +8,14 @@ export default defineConfig({
   vite: () => ({
     plugins: [tailwindcss()],
   }),
+  hooks: {
+    // The component gallery is a test fixture; keep it out of production builds.
+    'entrypoints:resolved': (wxt, entrypoints) => {
+      if (wxt.config.mode !== 'production') return;
+      const i = entrypoints.findIndex((e) => e.name === 'gallery');
+      if (i >= 0) entrypoints.splice(i, 1);
+    },
+  },
   manifest: ({ mode }) => ({
     name: 'Open Reader',
     description: 'Offline, reliable read-aloud for web pages and PDFs.',

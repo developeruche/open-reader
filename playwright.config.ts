@@ -8,4 +8,8 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['html', { open: 'never' }], ['list']] : 'list',
   use: { trace: 'retain-on-failure' },
+  // Baselines are per platform; CI (Linux) records its own on first run.
+  snapshotPathTemplate: '{testDir}/__screenshots__/{platform}/{arg}{ext}',
+  updateSnapshots: process.env.CI ? 'missing' : 'none',
+  expect: { toHaveScreenshot: { animations: 'disabled', caret: 'hide' } },
 });

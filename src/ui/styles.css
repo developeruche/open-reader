@@ -1,0 +1,84 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
+@import '@fontsource-variable/newsreader/opsz.css';
+@import './tokens.css';
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+@theme inline {
+  --color-*: initial;
+  --color-paper: var(--paper);
+  --color-paper-2: var(--paper-2);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-word-bg: var(--word-bg);
+  --color-word-fg: var(--word-fg);
+  --color-sentence: var(--sentence-bg);
+  --color-hover: var(--hover);
+  --color-press: var(--press);
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Newsreader Variable', ui-serif, Georgia, serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
+
+  --radius-control: 6px;
+  --radius-card: 12px;
+  --shadow-float: var(--shadow-float);
+  --ease-out: var(--ease);
+}
+
+@layer base {
+  html,
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 2px var(--paper);
+  }
+  ::selection {
+    background: var(--ink);
+    color: var(--paper);
+  }
+  button {
+    cursor: default;
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+@utility transition-quiet {
+  transition-property: background-color, color, border-color, opacity, transform;
+  transition-duration: var(--dur);
+  transition-timing-function: var(--ease);
+}
+@utility visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.lucide {
+  stroke-width: 1.5;
+}

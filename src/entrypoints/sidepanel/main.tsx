@@ -1,6 +1,4 @@
-import { createRoot } from 'react-dom/client';
-import { PlaceholderShell } from '@/ui/PlaceholderShell';
-import '@/ui/tokens.css';
+import { mount } from '@/ui/mount';
+import { SidePanelApp } from '@/ui/shells/SidePanelApp';
 
-const root = document.getElementById('root');
-if (root) createRoot(root).render(<PlaceholderShell title="Open Reader" />);
+mount((useAppearance) => <SidePanelApp useAppearance={useAppearance} />);

@@ -13,7 +13,7 @@ Every dependency's license is checked by `pnpm licenses:check` (allowlist in
 
 WXT (MIT), Vite (MIT), TypeScript (Apache-2.0), Tailwind CSS (MIT), ESLint (MIT),
 typescript-eslint (MIT), Prettier (MIT), Vitest (MIT), Playwright (Apache-2.0), happy-dom (MIT),
-lefthook (MIT), tsx (MIT), pdf-lib (MIT, fixtures only).
+lefthook (MIT), tsx (MIT), pdf-lib (MIT, fixtures only), Testing Library (MIT), axe-core / @axe-core/playwright (MPL-2.0).
 
 ## Design skills (not shipped)
 

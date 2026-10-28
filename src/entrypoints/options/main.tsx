@@ -1,6 +1,4 @@
-import { createRoot } from 'react-dom/client';
-import { PlaceholderShell } from '@/ui/PlaceholderShell';
-import '@/ui/tokens.css';
+import { mount } from '@/ui/mount';
+import { OptionsApp } from '@/ui/shells/OptionsApp';
 
-const root = document.getElementById('root');
-if (root) createRoot(root).render(<PlaceholderShell title="Open Reader — Settings" />);
+mount((useAppearance) => <OptionsApp useAppearance={useAppearance} />);

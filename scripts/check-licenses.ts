@@ -16,6 +16,7 @@ const ALLOWED = new Set([
   'CC-BY-4.0',
   'MPL-2.0',
   'Python-2.0',
+  'OFL-1.1',
   'Unlicense',
   'MIT-0',
   '(MIT OR CC0-1.0)',

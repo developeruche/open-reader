@@ -1,6 +1,4 @@
-import { createRoot } from 'react-dom/client';
-import { PlaceholderShell } from '@/ui/PlaceholderShell';
-import '@/ui/tokens.css';
+import { mount } from '@/ui/mount';
+import { ReaderApp } from '@/ui/shells/ReaderApp';
 
-const root = document.getElementById('root');
-if (root) createRoot(root).render(<PlaceholderShell title="Open Reader — Document" />);
+mount(() => <ReaderApp />);

@@ -172,7 +172,7 @@ describe('LiveReader', () => {
     expect(calls).toContainEqual(['goToPage', 2]);
     expect(fake.view.thumbnail).toHaveBeenCalled();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Show reading rules' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Show reading options' }));
     await userEvent.click(screen.getByRole('switch', { name: /Skip figure captions/ }));
     expect(fake.setRules).toHaveBeenCalledWith(expect.objectContaining({ captions: 'skip' }));
     await userEvent.click(screen.getByRole('switch', { name: /Show reading order/ }));

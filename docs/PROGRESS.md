@@ -16,7 +16,7 @@
 - [x] M11: Power features
 - [ ] M12: Online voices (opt-in) — skipped at the owner's request (2026-10-29)
 - [x] M13: OCR for scanned PDFs (optional)
-- [ ] M14: Polish, audits and v1.0.0
+- [x] M14: Polish, audits and v1.0.0 — the `v1.0.0` tag waits for the owner's 30-minute session in each mode (M14 QA below)
 
 ## Decisions
 
@@ -49,26 +49,35 @@ Installed into `.claude/skills/` by copying from pinned commits after reading ev
 
 ## Known issues
 
-- OCR is English only, and poor scans (handwriting, skew, low resolution) read badly (ADR 0020).
-- PDF reading order is heuristic (ADR 0016); use "Show reading order" in the reader to spot mistakes.
-
-- Kokoro's f16 variants are silent on Apple M3 Max WebGPU, so the GPU holds fp32 weights (326 MB); revisit with newer onnxruntime-web (ADR 0018).
-- The content script is 366 kB (113 kB gzipped, budget 250 kB) because the mini player uses React; injection stays on demand.
-- "Read page from here" before the first injection starts at the first visible block, not the exact right-click point.
-
-- ASR heard "Schnorr" (respelled "shnor") as "snore"; confirm by ear (ADR 0014).
-- The owner's own articles are not yet in `tests/fixtures/corpus/owner/`; the harness uses project-written passages.
-
-- HeadTTS's G2P reads a standalone spelled letter "A" (in acronyms such as "A P I") as "uh". Most
-  acronyms are unaffected; revisit with the M7 quality harness.
-
-- Speed above 2× (model speed 1.25 + slower playback) still needs the listening test planned for M7.
-
-- Reader view renders every block; for very long pages consider `content-visibility: auto` or
-  virtualization in M8 after measuring (Web Interface Guidelines: lists > 50 items).
-
-- Kokoro fp16 on WebGPU outputs silence on Apple M3 Max (ADR 0003). The benchmark must reject silent output.
-- `navigator.storage.persist()` returns false in a fresh profile; show it on the Storage page (ADR 0008).
+- **Voices**
+  - Kokoro's f16 variants are silent on Apple M3 Max WebGPU, so the GPU holds fp32 weights
+    (326 MB); revisit with newer onnxruntime-web (ADR 0003, ADR 0018).
+  - HeadTTS's G2P reads a standalone spelled letter "A" (in acronyms such as "A P I") as "uh". Most
+    acronyms are unaffected.
+  - ASR heard "Schnorr" (respelled "shnor") as "snore"; confirm by ear (ADR 0014).
+  - Speed above 2× (model speed 1.25 plus slower playback) has not had a dedicated listening test.
+- **Web mode**
+  - "Read page from here" before the first injection starts at the first visible block, not the
+    exact right-click point.
+  - The side panel's reader view renders every block; very long pages could use
+    `content-visibility: auto` if it measures slow.
+  - The content script is 366 kB (113 kB gzipped, budget 250 kB) because the mini player uses
+    React; it is injected only on demand.
+- **Document mode**
+  - PDF reading order is heuristic (ADR 0016); use "Show reading order" to spot mistakes.
+  - OCR is English only, and poor scans (handwriting, skew, low resolution) read badly (ADR 0020).
+- **Tests**
+  - Under full-suite load the E2E run occasionally fails one test that passes alone (seen twice in
+    four runs at 1.0.0, a different test each time). CI retries once; the soak and timing tests
+    pass on their own.
+  - The soak's start-up settle (the first clock correction of each segment) measured 225–280 ms
+    on the release machine against 65 ms in M10, probably audio-output latency; it is corrected
+    300 ms into each segment, and steady-state drift stayed at 13–20 ms.
+- **Other**
+  - `navigator.storage.persist()` is refused in a fresh profile; Options → Storage can ask again.
+  - Online voices (M12) were not built, at the owner's request.
+  - The owner's own articles are not in `tests/fixtures/corpus/owner/`; the quality harness uses
+    project-written passages.
 
 ## Spikes (M1)
 
@@ -76,6 +85,19 @@ Throwaway code under `spikes/` (excluded from build, lint and typecheck). Reprod
 `pnpm spikes:setup && pnpm spikes:build && pnpm spikes:run`; results land in `spikes/out/` (gitignored).
 
 ## Manual QA scripts
+
+### M14 (release check)
+
+Do one 30-minute reading session in each mode in your own Chrome, with your own voice and
+documents. This is the last acceptance step before tagging v1.0.0.
+
+1. **Web mode:** a long article (30+ minutes at your usual speed). Use the keyboard shortcuts,
+   pause for a few minutes once, and let it run in the background while you switch tabs. Note any
+   stall (silence longer than a sentence gap), wrong highlight, or bad pronunciation.
+2. **Document mode:** a long PDF, ideally two columns with references. Read it with **Follow** on,
+   zoom once, and click a word to jump.
+3. Afterwards, Options → Diagnostics: stalls and errors should be 0. Copy the diagnostics if
+   anything went wrong.
 
 ### M13
 

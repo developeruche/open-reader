@@ -75,10 +75,13 @@ export function LiveReader() {
     const params = new URLSearchParams(location.search);
     const src = params.get('src');
     const doc = params.get('doc');
+    // StrictMode runs this effect twice; only the mount that is still current opens the PDF.
+    let cancelled = false;
     void (async () => {
       try {
         if (doc) {
           const bytes = await loadPdf(doc);
+          if (cancelled) return;
           if (bytes) await ctl.openBytes(bytes, params.get('name') ?? 'Document.pdf');
           else
             toast({
@@ -87,19 +90,22 @@ export function LiveReader() {
             });
         } else if (src) {
           if (src.startsWith('file:') && !(await fileAccessAllowed())) {
-            setNeedsFileAccess(true);
+            if (!cancelled) setNeedsFileAccess(true);
             return;
           }
+          const bytes = await fetchPdf(src);
+          if (cancelled) return;
           await ctl.openBytes(
-            await fetchPdf(src),
+            bytes,
             decodeURIComponent(new URL(src).pathname.split('/').pop() || 'Document.pdf'),
           );
         }
       } catch (e) {
-        toast({ kind: 'error', title: e instanceof Error ? e.message : String(e) });
+        if (!cancelled) toast({ kind: 'error', title: e instanceof Error ? e.message : String(e) });
       }
     })();
     return () => {
+      cancelled = true;
       unwatch();
       ctl.destroy();
     };
@@ -209,7 +215,7 @@ export function LiveReader() {
             />
           </form>
           <IconButton
-            label={right ? 'Hide reading rules' : 'Show reading rules'}
+            label={right ? 'Hide reading options' : 'Show reading options'}
             size="sm"
             aria-expanded={right}
             onClick={() => setRight(!right)}
@@ -387,11 +393,11 @@ export function LiveReader() {
           ) : null}
         </main>
 
-        <Drawer side="right" open={right} label="Reading rules" width={300}>
+        <Drawer side="right" open={right} label="Reading options" width={300}>
           <div className="p-4">
-            <h2 className="font-serif text-lg tracking-tight">Reading rules</h2>
+            <h2 className="font-serif text-lg tracking-tight">Reading options</h2>
             <p className="mt-1 text-[13px] text-muted">
-              Skipped text stays visible; the voice passes over it.
+              Skipped text stays on the page; the voice passes over it.
             </p>
             <div className="mt-3 flex flex-col gap-4">
               <DocRules

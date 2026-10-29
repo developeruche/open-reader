@@ -71,7 +71,9 @@ export function startBackground(): void {
             type: 'NOTICE',
             notice: {
               kind: 'error',
-              message: `This page can't be read: ${e instanceof Error ? e.message : String(e)}`,
+              message:
+                "This page can't be read. Chrome blocks extensions on its own pages and the Web Store; for a PDF, use Open a PDF… in the side panel menu.",
+              detail: e instanceof Error ? e.message : String(e),
             },
           });
         }
@@ -163,7 +165,11 @@ export function startBackground(): void {
           if (msg.type === 'NO_CONTENT')
             broadcast({
               type: 'NOTICE',
-              notice: { kind: 'info', message: 'No readable text was found on this page.' },
+              notice: {
+                kind: 'info',
+                message:
+                  'No readable text was found on this page. Select some text and choose Read selection aloud from the right-click menu.',
+              },
             });
         });
         const pending = pendingExtract.get(tabId);

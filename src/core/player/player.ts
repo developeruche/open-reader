@@ -623,7 +623,11 @@ export class Player {
         break;
       case 'error':
         this.counters.errors++;
-        this.deps.onNotice?.({ kind: 'error', message: `Audio error: ${e.message}` });
+        this.deps.onNotice?.({
+          kind: 'error',
+          message: 'The audio stopped unexpectedly. Reading picks up again in a moment.',
+          detail: e.message,
+        });
         this.actor.send({ type: 'AUDIO_STALLED' });
         break;
     }

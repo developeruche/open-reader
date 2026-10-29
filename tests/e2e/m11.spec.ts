@@ -96,7 +96,7 @@ test('exports a PDF from the reader', async ({ context, extensionId }) => {
   await page.waitForFunction(
     () => (window as { __reader?: { state: { phase: string } } }).__reader?.state.phase === 'ready',
   );
-  await page.getByRole('button', { name: 'Show reading rules' }).click();
+  await page.getByRole('button', { name: 'Show reading options' }).click();
   await page.getByRole('button', { name: 'Export audiobook…' }).click();
   await page.getByRole('combobox', { name: 'Format' }).click();
   await page.getByRole('option', { name: /WAV/ }).click();

@@ -122,9 +122,22 @@ export class ReaderController {
   private readonly ocrItems = new Map<number, PdfItem[]>();
   private ocrEngine: OcrEngine | undefined;
   private openToken = 0;
+  /** Removes the container listeners of the current attach. */
+  private detach: AbortController | undefined;
 
+  private teardown: ReturnType<typeof setTimeout> | undefined;
+
+  /**
+   * Binds the viewer to `container`. React StrictMode mounts, cleans up and mounts again in one
+   * commit, so a destroy() followed at once by attach() keeps the live viewer (PDF.js does not
+   * survive a second viewer on the same container).
+   */
   attach(container: HTMLDivElement): void {
+    clearTimeout(this.teardown);
+    this.teardown = undefined;
     if (this.view) return;
+    this.detach = new AbortController();
+    const signal = this.detach.signal;
     this.view = new PdfView(container);
     this.follow = new FollowScroller(
       window,
@@ -143,9 +156,12 @@ export class ReaderController {
     this.view.on('scalechanging', () => this.repaint());
     container.addEventListener('scroll', () => this.cursor?.show(this.painter.word), {
       passive: true,
+      signal,
     });
-    container.addEventListener('pointerdown', (e) => (this.down = { x: e.clientX, y: e.clientY }));
-    container.addEventListener('click', (e) => this.onClick(e));
+    container.addEventListener('pointerdown', (e) => (this.down = { x: e.clientX, y: e.clientY }), {
+      signal,
+    });
+    container.addEventListener('click', (e) => this.onClick(e), { signal });
   }
 
   get state(): ReaderState {
@@ -165,15 +181,21 @@ export class ReaderController {
     const token = ++this.openToken;
     this.ocrItems.clear();
     this.set({ phase: 'loading', fileName, progress: null, error: null, ocr: null, ocrPages: [] });
+    const view = this.view;
+    // A newer open (or destroy) supersedes this one; stop at the next step.
+    const stale = () => token !== this.openToken || this.view !== view;
     try {
       const id = await savePdf(bytes);
-      const opened = await this.view.open(bytes, id, fileName, (page, total) =>
+      if (stale()) return;
+      const opened = await view.open(bytes, id, fileName, (page, total) =>
         this.set({ progress: { page, total } }),
       );
+      if (stale()) return;
       this.opened = opened;
       this.map = new TextLayerMap(opened.pages, (p) => this.view?.pageDiv(p));
       const settings = await loadSettings();
       const docRules = (await this.library.getRules(id)) ?? null;
+      if (stale()) return;
       const rules = docRules ?? settings.skipRules;
       this.set({
         phase: 'ready',
@@ -187,6 +209,7 @@ export class ReaderController {
         docRules,
       });
       const saved = await this.library.getPosition(id);
+      if (stale()) return;
       // A fully scanned PDF has nothing to read until OCR finishes.
       if (opened.layout.blocks.length) await this.load(rules, saved ? undefined : 0, saved);
       // Opened documents join the library right away, so they can be reopened offline.
@@ -197,7 +220,7 @@ export class ReaderController {
       if (opened.layout.emptyPages.length)
         void this.recognize(opened.layout.emptyPages, token, saved);
     } catch (e) {
-      this.set({ phase: 'error', error: e instanceof Error ? e.message : String(e) });
+      if (!stale()) this.set({ phase: 'error', error: e instanceof Error ? e.message : String(e) });
     }
   }
 
@@ -526,7 +549,14 @@ export class ReaderController {
     }
   }
 
+  /** Tears down on the next tick unless attach() runs again first (see attach). */
   destroy(): void {
+    clearTimeout(this.teardown);
+    this.teardown = setTimeout(() => this.destroyNow(), 0);
+  }
+
+  private destroyNow(): void {
+    this.teardown = undefined;
     this.openToken++;
     void this.ocrEngine?.terminate();
     cancelAnimationFrame(this.raf);
@@ -534,5 +564,12 @@ export class ReaderController {
     this.cursor?.destroy();
     this.follow?.destroy();
     this.view?.destroy();
+    this.detach?.abort();
+    this.view = undefined;
+    this.cursor = undefined;
+    this.follow = undefined;
+    this.opened = undefined;
+    this.map = undefined;
+    this.ocrEngine = undefined;
   }
 }

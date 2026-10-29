@@ -2,10 +2,11 @@ import { useEffect, useState, type ReactNode } from 'react';
 import type { Settings } from '@/core/settings';
 import type { SkipRules } from '@/core/text/skip';
 import { loadSettings, saveSettings } from '@/platform/settings';
-import { Ban, Gauge, Globe, HardDrive, Info, Keyboard, Mic, Stethoscope, Type } from '../icons';
-import { Button, Dialog, Kbd, Select, Skeleton, SkipLink, Slider, Toggle } from '../components';
+import { Ban, Gauge, HardDrive, Info, Keyboard, Mic, Stethoscope, Type } from '../icons';
+import { Kbd, Select, Skeleton, SkipLink, Slider, Toggle } from '../components';
 import { cn } from '../cn';
 import { formatRate } from '../format';
+import { environmentInfo } from '@/platform/environment';
 import { VoicesSection } from '../models/VoicesSection';
 import { DiagnosticsSection } from './DiagnosticsSection';
 import { PronunciationsSection } from './PronunciationsSection';
@@ -17,7 +18,6 @@ type SectionId =
   | 'playback'
   | 'rules'
   | 'pronunciations'
-  | 'online'
   | 'shortcuts'
   | 'storage'
   | 'diagnostics'
@@ -28,7 +28,6 @@ const SECTIONS: { id: SectionId; label: string; icon: ReactNode }[] = [
   { id: 'playback', label: 'Playback', icon: <Gauge size={16} aria-hidden /> },
   { id: 'rules', label: 'Reading rules', icon: <Ban size={16} aria-hidden /> },
   { id: 'pronunciations', label: 'Pronunciations', icon: <Type size={16} aria-hidden /> },
-  { id: 'online', label: 'Online voices', icon: <Globe size={16} aria-hidden /> },
   { id: 'shortcuts', label: 'Shortcuts', icon: <Keyboard size={16} aria-hidden /> },
   { id: 'storage', label: 'Storage', icon: <HardDrive size={16} aria-hidden /> },
   { id: 'diagnostics', label: 'Diagnostics', icon: <Stethoscope size={16} aria-hidden /> },
@@ -169,47 +168,14 @@ function Rules() {
   );
 }
 
-function Online() {
-  const [on, setOn] = useState(false);
-  return (
-    <Section
-      title="Online voices"
-      intro="Off by default. When on, the current and next sentence are sent to the provider you choose."
-    >
-      <Dialog
-        open={on}
-        onOpenChange={setOn}
-        title="Send text to an online voice?"
-        description="Text you play will leave this device and go to the provider. Your key stays on this device and is never synced."
-        footer={
-          <>
-            <Button onClick={() => setOn(false)}>Cancel</Button>
-            <Button variant="primary" onClick={() => setOn(false)}>
-              Turn on
-            </Button>
-          </>
-        }
-      />
-      <div className="border-y border-line">
-        <Toggle
-          label="Use online voices"
-          description="Requires your own API key."
-          checked={false}
-          onCheckedChange={setOn}
-        />
-      </div>
-    </Section>
-  );
-}
-
 const SHORTCUTS: [string, string[]][] = [
-  ['Open Open Reader', ['Alt', 'Shift', 'O']],
+  ['Open the side panel', ['Alt', 'Shift', 'O']],
   ['Play or pause (anywhere)', ['Alt', 'Shift', 'P']],
   ['Next sentence (anywhere)', ['Alt', 'Shift', '.']],
   ['Previous sentence (anywhere)', ['Alt', 'Shift', ',']],
   ['Play or pause', ['Space']],
   ['Previous / next sentence', ['J', 'K']],
-  ['Previous / next paragraph', ['Shift', 'J']],
+  ['Previous / next paragraph', ['Shift J', 'Shift K']],
   ['Slower / faster', ['−', '=']],
   ['Follow on or off', ['F']],
   ['Stop', ['Esc']],
@@ -244,12 +210,42 @@ function Shortcuts() {
   );
 }
 
+const LICENSES: [string, string][] = [
+  ['Kokoro-82M voice model', 'Apache-2.0'],
+  ['Piper voices (Classic, lessac medium)', 'MIT model; training data for research use only'],
+  ['Piper LJSpeech voice', 'MIT model; public-domain data'],
+  ['onnxruntime-web', 'MIT'],
+  ['espeak-ng (in the Piper phonemizer)', 'GPL-3.0'],
+  ['HeadTTS pronunciation (CMUdict-derived)', 'MIT and BSD-2-Clause'],
+  ['PDF.js', 'Apache-2.0'],
+  ['Readability', 'Apache-2.0'],
+  ['Tesseract OCR and English data', 'Apache-2.0'],
+  ['LAME MP3 encoder (wasm-media-encoders)', 'LGPL-2.0 (encoder), MIT (wrapper)'],
+  ['React, Radix UI, XState, zod, zustand', 'MIT'],
+  ['Lucide icons, idb', 'ISC'],
+  ['Geist and Newsreader fonts', 'SIL OFL-1.1'],
+];
+
 function About() {
+  const [version, setVersion] = useState('');
+  useEffect(() => {
+    void environmentInfo().then((e) => setVersion(e.version));
+  }, []);
   return (
     <Section title="About & licenses" intro="Open Reader is for research and personal use.">
       <p className="text-sm text-ink-2">
-        Version 0.2.0. Third-party licenses are listed in docs/THIRD_PARTY.md and docs/MODELS.md.
+        Version <span className="tabular">{version || '…'}</span>. Everything runs on this device;
+        nothing you read is sent anywhere.
       </p>
+      <h2 className="mt-8 font-serif text-lg tracking-tight">Included software and models</h2>
+      <dl className="mt-3 divide-y divide-line border-y border-line text-sm">
+        {LICENSES.map(([what, license]) => (
+          <div key={what} className="flex justify-between gap-6 py-2.5">
+            <dt>{what}</dt>
+            <dd className="text-right text-ink-2">{license}</dd>
+          </div>
+        ))}
+      </dl>
     </Section>
   );
 }
@@ -259,7 +255,6 @@ const VIEWS: Record<SectionId, () => ReactNode> = {
   playback: Playback,
   rules: Rules,
   pronunciations: PronunciationsSection,
-  online: Online,
   shortcuts: Shortcuts,
   storage: StorageSection,
   diagnostics: DiagnosticsSection,

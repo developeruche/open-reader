@@ -4,13 +4,31 @@ Open Reader collects nothing. No analytics, no telemetry.
 
 ## Network
 
-The only network calls are model downloads the owner starts and, if turned on, online voices.
+Open Reader makes network requests only when you ask it to:
+
+- **Model downloads** you start (onboarding or Options → Voices & models), from Hugging Face at
+  pinned revisions, each file checked against its SHA-256.
+- **A PDF you open by URL** (a PDF tab, a link's context menu, or the optional PDF redirect) is
+  downloaded by the reader so it can be read; Chrome sends it the usual cookies for that site.
+
+Chrome's own online system voices (for example "Google US English") send text to Google. They are
+hidden while **Strict offline** is on, which is the default. Open Reader has no online voices of
+its own (M12 was not built).
 
 ## Permissions
 
 `host_permissions: ["<all_urls>"]` lets the content script read and highlight any page the owner
 asks it to read. This is a personal-use build; broad access is accepted in exchange for not
-prompting per site. Details of what is stored where are added as storage lands (M4–M6).
+prompting per site. The other permissions:
+
+| Permission                                            | Why                                                                                                |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `sidePanel`, `contextMenus`, `activeTab`, `scripting` | The side panel, the right-click entries, and injecting the reader into the page you ask it to read |
+| `offscreen`                                           | The engine host that plays audio for web pages                                                     |
+| `storage`, `unlimitedStorage`                         | Settings, the session, and models in OPFS                                                          |
+| `tts`                                                 | System voices                                                                                      |
+| `downloads`                                           | Saving audiobook exports                                                                           |
+| `declarativeNetRequestWithHostAccess`                 | The optional "Open PDF links in Open Reader" redirect (off by default)                             |
 
 ## What is stored where (from M5)
 

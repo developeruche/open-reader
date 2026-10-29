@@ -54,6 +54,16 @@ vi.mock('@/ui/shells/PronunciationsSection', () => ({
 vi.mock('@/ui/shells/DiagnosticsSection', () => ({
   DiagnosticsSection: () => <h1>Diagnostics</h1>,
 }));
+vi.mock('@/platform/environment', () => ({
+  environmentInfo: async () => ({
+    version: '1.0.0',
+    userAgent: '',
+    cores: 8,
+    memoryGB: null,
+    webgpu: null,
+    crossOriginIsolated: false,
+  }),
+}));
 vi.mock('@/platform/settings', () => ({
   saveSettings: vi.fn(async () => (await import('@/core/settings')).DEFAULT_SETTINGS),
   loadSettings: vi.fn(async () => (await import('@/core/settings')).DEFAULT_SETTINGS),
@@ -219,7 +229,6 @@ describe('OptionsApp', () => {
       'Playback',
       'Reading rules',
       'Pronunciations',
-      'Online voices',
       'Shortcuts',
       'Storage',
       'Diagnostics',
@@ -228,9 +237,8 @@ describe('OptionsApp', () => {
       await userEvent.click(screen.getByRole('link', { name }));
       expect(screen.getByRole('heading', { level: 1, name })).toBeTruthy();
     }
-    await userEvent.click(screen.getByRole('link', { name: 'Online voices' }));
-    await userEvent.click(screen.getByRole('switch', { name: 'Use online voices' }));
-    await userEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
+    expect(await screen.findByText('1.0.0')).toBeTruthy();
+    expect(screen.getByText('espeak-ng (in the Piper phonemizer)')).toBeTruthy();
   });
 
   it('lists local system voices and hides online ones in strict offline mode', async () => {

@@ -1,6 +1,17 @@
 # Architecture
 
-See PLAN.md §4 for the target design. This document is filled in as milestones land.
+Open Reader is an MV3 extension with one reading session at a time:
+
+- The **background service worker** owns the session (`src/runtime/orchestrator.ts`, mirrored in
+  `chrome.storage.session`). It routes commands from every surface, arbitrates which host is
+  audible, runs the sleep timer, and keeps the diagnostics log.
+- An **engine host** owns the player, the engines (in workers) and the audio. For web pages it is
+  the offscreen document; for PDFs it is the reader page itself. Both run `HostRuntime`.
+- **Surfaces**: the content script (highlights, cursor, mini player, keyboard), the side panel,
+  the reader page (PDF.js viewer), Options and onboarding.
+- Everything that touches `chrome.*` lives in `src/platform/`; `src/core/` and `src/runtime/` are
+  pure and unit-tested. PLAN.md §4 has the original design; the ADRs record where the code
+  differs.
 
 - `src/entrypoints/`: background, content script, side panel, reader, offscreen, options, onboarding.
 - `src/core/`: pure TypeScript (no `chrome.*`), unit-tested.

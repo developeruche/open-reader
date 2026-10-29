@@ -2,7 +2,7 @@
   "name": "open-reader",
   "description": "Offline, reliable read-aloud for web pages and PDFs.",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "packageManager": "pnpm@10.9.0",
   "scripts": {

@@ -10,7 +10,10 @@
 | Piper `en_US-ljspeech-high`           | same                                                          | 114 MB                                               | Model MIT; LJSpeech public domain              |                                                                                                                                  |
 
 System voices (`chrome.tts`) need no download; online system voices are hidden while Strict
-offline is on.
+offline is on. They can't be exported as audio (chrome.tts produces no samples).
+
+OCR (ADR 0020) bundles Tesseract's English `best_int` model (2.95 MB, Apache-2.0); it is not a
+voice and is not in the registry.
 
 Supporting data bundled with the extension: the en-us pronunciation dictionary from HeadTTS
 (CMUdict 0.07 derivative, BSD-style license kept in the file header).
@@ -37,7 +40,10 @@ Say we add an engine `acme` that runs `acme.onnx` and returns per-character alig
    - `caps`: `wordTimings: 'native'` (or `'estimated'` to let the player estimate them),
      `maxChars` (spoken characters per call), `backends`.
    - `init(model, { backend })`: read files with an injected `readFile(path)` (OPFS in the worker),
-     create the ONNX session with `executionProviders: [backend]`.
+     and create the ONNX session from `sessionInput(bytes, backend)` (`src/engines/onnx/externalize.ts`).
+     On WebGPU that loads the weights as external data, so onnxruntime's WASM heap stays small
+     (ADR 0018). If input lengths vary, use
+     `{ name: 'webgpu', storageBufferCacheMode: 'lazyRelease' }` as Kokoro does.
    - `synthesize({ text, voiceId, speed })`: return `{ pcm: Float32Array, sampleRate, words? }`
      where `words` are `{ charStart, charEnd, start, end }` in seconds and **spoken-text** offsets.
      Respect the `AbortSignal`.
@@ -46,7 +52,11 @@ Say we add an engine `acme` that runs `acme.onnx` and returns per-character alig
    `new Worker(new URL('./acme/worker.ts', import.meta.url), { type: 'module', name: modelDir(manifest) })`,
    wrap it in `RemoteEngine`, and `init` it.
 4. **Registry**: add `"engine": "acme"` to `EngineIdSchema` and a model entry.
-5. **Tests**: a unit test with a fake ONNX runtime (see `tests/unit/engines/kokoro`) and a smoke
+5. **Fallbacks and names**: add `acme` to `RENDER_ENGINES` and `NAMES` in
+   `src/core/tts/fallback.ts`, so a failure can move to it (or from it) with a readable notice.
+   Pronunciation entries can target it with `engines: ['acme']`.
+6. **Tests**: a unit test with a fake ONNX runtime (see `tests/unit/engines/kokoro`) and a smoke
    test in `tests/models/`.
 
-Everything else (normalization, caching, prefetch, timing sync, highlighting) works unchanged.
+Everything else (normalization, pronunciations, caching, prefetch, timing sync, highlighting,
+the fallback ladder and audiobook export) works unchanged.

@@ -105,7 +105,7 @@ test.describe('document mode (PDF)', () => {
     const page = await openPdf(context, extensionId, 'references');
     expect((await texts(page)).join(' ')).not.toContain('Wallet survey');
     expect((await texts(page)).join(' ')).toContain('Figure 1.');
-    await page.getByRole('button', { name: 'Show reading rules' }).click();
+    await page.getByRole('button', { name: 'Show reading options' }).click();
     await page.getByRole('switch', { name: 'Skip references' }).click();
     await expect.poll(async () => (await texts(page)).join(' ')).toContain('Wallet survey');
   });

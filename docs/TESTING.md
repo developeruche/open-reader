@@ -92,3 +92,13 @@ Apple M3 Max, macOS 26.6, Playwright Chromium, 2026-10-29.
 - `tests/e2e/ocr.spec.ts`: offline recognition (every request outside the extension is aborted),
   ≥ 90% word recall against the source, the word cursor on the scanned page, and the cache on
   reopen.
+
+## Release audits (M14)
+
+- `tests/e2e/a11y.spec.ts` runs axe (WCAG 2.2 AA) over every Options section, the side panel in a
+  session (Reader, Outline and Settings tabs, the export dialog), the reader with a PDF (both
+  drawers, the export dialog), the empty reader and the storage confirmation, in light and dark.
+  Serious and critical findings fail; moderate ones are printed. At 1.0.0 there are none of either.
+- Acceptance for 1.0.0: `pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build &&
+pnpm budgets && pnpm test:e2e`, `pnpm test:models` (including the offline read), `pnpm test:soak`,
+  the quality harness, and the owner's 30-minute session in each mode (docs/PROGRESS.md).

@@ -123,7 +123,7 @@ export default defineConfig({
     commands: {
       _execute_action: {
         suggested_key: { default: 'Alt+Shift+O' },
-        description: 'Open Open Reader',
+        description: 'Open the side panel',
       },
       'toggle-play': {
         suggested_key: { default: 'Alt+Shift+P' },

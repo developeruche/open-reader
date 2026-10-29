@@ -109,10 +109,10 @@ test('reader: floating transport and drawers work from the keyboard', async ({
   await follow.focus();
   await page.keyboard.press('Enter');
   await expect(follow).toHaveAttribute('aria-pressed', 'false');
-  const rules = page.getByRole('button', { name: 'Show reading rules' });
+  const rules = page.getByRole('button', { name: 'Show reading options' });
   await rules.focus();
   await page.keyboard.press('Enter');
-  await expect(page.getByRole('complementary', { name: 'Reading rules' })).toBeVisible();
+  await expect(page.getByRole('complementary', { name: 'Reading options' })).toBeVisible();
   await page.getByRole('switch', { name: 'Skip references' }).focus();
   await page.keyboard.press('Space');
   await expect(page.getByRole('switch', { name: 'Skip references' })).toHaveAttribute(

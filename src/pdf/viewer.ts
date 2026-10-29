@@ -15,6 +15,7 @@ import 'pdfjs-dist/web/pdf_viewer.css';
 import type { ReadingDocument } from '@/core/document/model';
 import type { analyzeLayout, LayoutResult, PdfPageText } from './layout';
 import { pageText } from './textContent';
+import { ocrScale } from './ocr';
 
 const base = (p: string) => new URL(p, location.origin).href;
 pdfjs.GlobalWorkerOptions.workerSrc = base('/pdfjs/pdf.worker.min.mjs');
@@ -98,9 +99,7 @@ export class PdfView {
       onProgress?.(p, pdf.numPages);
     }
     const l0 = performance.now();
-    this.worker ??= new Worker(new URL('./layout.worker.ts', import.meta.url), { type: 'module' });
-    const api = Comlink.wrap<{ analyzeLayout: typeof analyzeLayout }>(this.worker);
-    const layout = await api.analyzeLayout(pages);
+    const layout = await this.relayout(pages);
     const layoutMs = performance.now() - l0;
     const meta = (await pdf.getMetadata().catch(() => null)) as {
       info?: { Title?: string };
@@ -114,6 +113,29 @@ export class PdfView {
       firstPageMs,
       layoutMs,
     };
+  }
+
+  /** Layout analysis in the worker (again after OCR adds text to scanned pages). */
+  private layoutApi: Comlink.Remote<{ analyzeLayout: typeof analyzeLayout }> | undefined;
+
+  async relayout(pages: PdfPageText[]): Promise<ReturnType<typeof analyzeLayout>> {
+    if (!this.layoutApi) {
+      this.worker = new Worker(new URL('./layout.worker.ts', import.meta.url), { type: 'module' });
+      this.layoutApi = Comlink.wrap<{ analyzeLayout: typeof analyzeLayout }>(this.worker);
+    }
+    return this.layoutApi.analyzeLayout(pages);
+  }
+
+  /** Renders a page to a canvas for OCR, about 2000 px wide. */
+  async renderForOcr(page: number): Promise<HTMLCanvasElement> {
+    const p = await this.pdf?.getPage(page);
+    if (!p) throw new Error(`No page ${page}`);
+    const vp = p.getViewport({ scale: ocrScale(p.getViewport({ scale: 1 }).width) });
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(vp.width);
+    canvas.height = Math.round(vp.height);
+    await p.render({ canvas, viewport: vp }).promise;
+    return canvas;
   }
 
   async outline(): Promise<OutlineItem[]> {

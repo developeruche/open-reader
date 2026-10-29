@@ -22,6 +22,16 @@ const RUNTIME_ASSETS: [src: string, dest: string][] = [
     'node_modules/@diffusionstudio/piper-wasm/build/piper_phonemize.data',
     'piper/piper_phonemize.data',
   ],
+  // OCR (§8.5, ADR 0020): tesseract.js worker, the SIMD LSTM core, and English best_int data.
+  ['node_modules/tesseract.js/dist/worker.min.js', 'tesseract/worker.min.js'],
+  [
+    'node_modules/tesseract.js-core/tesseract-core-simd-lstm.wasm.js',
+    'tesseract/tesseract-core-simd-lstm.wasm.js',
+  ],
+  [
+    'node_modules/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz',
+    'tesseract/lang/eng.traineddata.gz',
+  ],
 ];
 
 /** PDF.js worker, WASM image decoders, standard fonts and cMaps (§8.2), all local. */

@@ -22,6 +22,7 @@ prompting per site. Details of what is stored where are added as storage lands (
 | IndexedDB `open-reader` → `library`  | Title, URL and last position of documents you read                                                            | Until removed            |
 | IndexedDB `open-reader` → `lexicon`  | Your pronunciations                                                                                           | Until removed            |
 | IndexedDB `open-reader` → `docRules` | Reading rules you chose for a page or PDF                                                                     | Until removed            |
+| IndexedDB `open-reader` → `ocr`      | Text recognized on scanned PDF pages, on this device                                                          | Until removed            |
 | OPFS `exports/`                      | An audiobook while it is being made                                                                           | Deleted once it is saved |
 | OPFS `documents/`                    | Copies of PDFs you open in the reader, named by content hash, so they reopen after a restart                  | Until removed            |
 

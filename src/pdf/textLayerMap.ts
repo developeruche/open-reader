@@ -5,6 +5,7 @@
 import { anchorPieces } from '@/core/document/anchors';
 import type { Block, ReadingDocument } from '@/core/document/model';
 import type { PdfPageText } from './layout';
+import { OCR_LAYER } from './ocrLayer';
 
 export class TextLayerMap {
   private readonly spans = new Map<number, HTMLElement[]>();
@@ -33,7 +34,9 @@ export class TextLayerMap {
   private pageSpans(page: number): HTMLElement[] | undefined {
     const cached = this.spans.get(page);
     if (cached?.[0]?.isConnected) return cached;
-    const layer = this.pageDiv(page)?.querySelector('.textLayer');
+    // A scanned page's OCR layer stands in for PDF.js's empty one (ADR 0020).
+    const div = this.pageDiv(page);
+    const layer = div?.querySelector(`.${OCR_LAYER}`) ?? div?.querySelector('.textLayer');
     if (!layer) return undefined;
     const spans = [...layer.querySelectorAll<HTMLElement>('span:not(.markedContent)')].filter(
       (s) => !s.closest('.highlight') || s.parentElement?.closest('.textLayer') === layer,

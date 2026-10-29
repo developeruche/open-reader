@@ -101,3 +101,10 @@ and the latest stats per host, served to `src/ui/shells/DiagnosticsSection.tsx` 
 `src/platform/exporter.ts`). The sleep timer is `src/core/player/sleep.ts`. User pronunciations
 are `src/platform/lexicon.ts`, edited in `src/ui/shells/PronunciationsSection.tsx`. Shared
 controls: `src/ui/controls/{SleepTimer,DocRules,ExportPanel}.tsx`. See ADR 0019.
+
+## OCR (M13)
+
+`src/pdf/ocr.ts` turns Tesseract words into PDF items, `src/pdf/ocrEngine.ts` runs tesseract.js
+with bundled assets, `src/pdf/ocrLayer.ts` draws the OCR text layer, and
+`src/platform/ocrCache.ts` keeps results per page. `ReaderController.recognize` drives it. See
+ADR 0020.

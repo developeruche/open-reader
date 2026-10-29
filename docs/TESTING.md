@@ -82,3 +82,13 @@ Apple M3 Max, macOS 26.6, Playwright Chromium, 2026-10-29.
   `chrome.downloads`), the sleep timer, and per-document rules.
 - `tests/models/export.spec.ts` (`pnpm test:models`): a Kokoro export checked with FFmpeg's
   `ebur128` (±0.5 LU of −17 LUFS, ≤ −1.5 dBTP); `EXPORT_FORMAT=wav` checks WAV.
+
+## OCR (M13)
+
+- `tests/fixtures/pdf/scanned.pdf` (from `pnpm fixtures`): text rendered by Chromium at 2.5× and
+  embedded as an image; `scanned.golden.json` holds the source text.
+- `tests/unit/pdf/ocr.test.ts`: word boxes → PDF items, confidence filtering, and layout over OCR
+  items.
+- `tests/e2e/ocr.spec.ts`: offline recognition (every request outside the extension is aborted),
+  ≥ 90% word recall against the source, the word cursor on the scanned page, and the cache on
+  reopen.

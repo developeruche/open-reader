@@ -4,6 +4,7 @@
  * Each golden lists the readable blocks in order and the text that must be skipped.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { chromium } from '@playwright/test';
 import { PDFDocument, rgb, StandardFonts, type PDFFont, type PDFPage } from 'pdf-lib';
 
 const OUT = 'tests/fixtures/pdf';
@@ -206,6 +207,34 @@ async function imageOnly(): Promise<Golden> {
   return { blocks: [], skipped: [] };
 }
 
+export const SCANNED_TEXT = [
+  'Signing with a hardware wallet',
+  'A partially signed transaction travels between wallets until every signer has added what it knows.',
+  'The hardware wallet shows the destination and the fee before it signs anything at all.',
+];
+
+/** A scanned page (M13): text rendered by Chromium and embedded as an image, no text items. */
+async function scanned(): Promise<Golden> {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({
+      viewport: { width: W, height: H },
+      deviceScaleFactor: 2.5,
+    });
+    const [title, ...paras] = SCANNED_TEXT;
+    await page.setContent(`<!doctype html><body style="margin:72px;font:15px/1.5 Georgia,serif;color:#222;background:#fbfaf7">
+      <h1 style="font-size:24px;margin:0 0 18px">${title}</h1>${paras.map((t) => `<p style="margin:0 0 14px">${t}</p>`).join('')}</body>`);
+    const png = await page.screenshot({ type: 'png' });
+    const doc = await PDFDocument.create();
+    const p = doc.addPage([W, H]);
+    p.drawImage(await doc.embedPng(png), { x: 0, y: 0, width: W, height: H });
+    writeFileSync(`${OUT}/scanned.pdf`, await doc.save());
+  } finally {
+    await browser.close();
+  }
+  return { blocks: SCANNED_TEXT, skipped: [] };
+}
+
 /** A 100-page document for the performance check (§9.1). */
 async function hundredPages(): Promise<void> {
   const doc = await PDFDocument.create();
@@ -229,6 +258,7 @@ async function main() {
     hyphenation: await hyphenation(),
     references: await references(),
     'image-only': await imageOnly(),
+    scanned: await scanned(),
   };
   await hundredPages();
   for (const [name, g] of Object.entries(goldens))

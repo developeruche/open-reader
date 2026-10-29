@@ -37,6 +37,8 @@ const BASE: ReaderState = {
   sleep: null,
   docRules: null,
   exportJob: null,
+  ocr: null,
+  ocrPages: [],
 };
 
 let fake: FakeController;
@@ -180,7 +182,17 @@ describe('LiveReader', () => {
 
     act(() => fake.store.setState({ notice: 'Skipped a table', emptyPages: [2] }));
     expect(toast).toHaveBeenCalledWith({ kind: 'info', title: 'Skipped a table' });
-    expect(screen.getByText(/1 page has no text layer/)).toBeTruthy();
+    expect(screen.getByText(/no readable text was found on/).textContent).toMatch(/1 page\.$/);
+    act(() =>
+      fake.store.setState({
+        ocr: { page: 3, done: 1, total: 4 },
+        ocrPages: [2, 3],
+        emptyPages: [],
+      }),
+    );
+    expect(screen.getByText(/Recognizing text on page 3…/)).toBeTruthy();
+    expect(screen.getByText(/\(2 of 4\)/)).toBeTruthy();
+    expect(screen.getByText(/Text on 2 scanned pages was recognized/)).toBeTruthy();
   });
 
   it('reports a document that is no longer stored', async () => {

@@ -1,0 +1,8 @@
+{
+  "blocks": [
+    "Signing with a hardware wallet",
+    "A partially signed transaction travels between wallets until every signer has added what it knows.",
+    "The hardware wallet shows the destination and the fee before it signs anything at all."
+  ],
+  "skipped": []
+}

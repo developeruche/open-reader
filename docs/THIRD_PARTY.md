@@ -5,12 +5,14 @@ Every dependency's license is checked by `pnpm licenses:check` (allowlist in
 
 ## Runtime dependencies (bundled into the extension)
 
-| Package              | Version | License                                                                                |
-| -------------------- | ------- | -------------------------------------------------------------------------------------- |
-| react, react-dom     | 19.3.1  | MIT                                                                                    |
-| pdfjs-dist           | 6.4.299 | Apache-2.0                                                                             |
-| wasm-media-encoders  | 0.7.0   | MIT; its MP3 encoder is LAME (LGPL-2.0), shipped as a separate, replaceable `mp3.wasm` |
-| @mozilla/readability | 0.6.0   | Apache-2.0                                                                             |
+| Package                         | Version | License                                                                                     |
+| ------------------------------- | ------- | ------------------------------------------------------------------------------------------- |
+| react, react-dom                | 19.3.1  | MIT                                                                                         |
+| pdfjs-dist                      | 6.4.299 | Apache-2.0                                                                                  |
+| wasm-media-encoders             | 0.7.0   | MIT; its MP3 encoder is LAME (LGPL-2.0), shipped as a separate, replaceable `mp3.wasm`      |
+| tesseract.js, tesseract.js-core | 7.0.0   | Apache-2.0                                                                                  |
+| @tesseract.js-data/eng          | 1.0.0   | MIT package; the English traineddata (best_int) is Apache-2.0 (tesseract-ocr/tessdata_best) |
+| @mozilla/readability            | 0.6.0   | Apache-2.0                                                                                  |
 
 ## Build and test tools
 

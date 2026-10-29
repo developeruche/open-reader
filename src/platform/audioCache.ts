@@ -1,6 +1,7 @@
 import type { ReadingPosition } from '@/core/document/model';
 import type { StoredEntry } from '@/core/text/lexicon';
 import type { SkipRules } from '@/core/text/skip';
+import type { PdfItem } from '@/pdf/layout';
 /** IndexedDB synthesis cache (`open-reader` db, `audio` store) with LRU eviction by bytes. */
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import {
@@ -31,10 +32,12 @@ export interface OpenReaderDB extends DBSchema {
   lexicon: { key: string; value: StoredEntry };
   /** Reading rules chosen for one document. */
   docRules: { key: string; value: { docId: string; rules: SkipRules } };
+  /** OCR text items per scanned page: key `${docId}:${page}:${OCR_VERSION}`. */
+  ocr: { key: string; value: { key: string; items: PdfItem[] } };
 }
 
 export const DB_NAME = 'open-reader';
-export const DB_VERSION = 3;
+export const DB_VERSION = 4;
 
 export function openReaderDb(name = DB_NAME): Promise<IDBPDatabase<OpenReaderDB>> {
   return openDB<OpenReaderDB>(name, DB_VERSION, {
@@ -52,6 +55,7 @@ export function openReaderDb(name = DB_NAME): Promise<IDBPDatabase<OpenReaderDB>
         db.createObjectStore('lexicon', { keyPath: 'id' });
         db.createObjectStore('docRules', { keyPath: 'docId' });
       }
+      if (oldVersion < 4) db.createObjectStore('ocr', { keyPath: 'key' });
     },
   });
 }

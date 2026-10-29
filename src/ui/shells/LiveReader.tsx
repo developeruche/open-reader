@@ -336,6 +336,30 @@ export function LiveReader() {
             </div>
           ) : null}
           {overlay && ctl.opened ? <ReadingOrderOverlay ctl={ctl} /> : null}
+          {s.phase === 'ready' && s.ocr ? (
+            <div className="pointer-events-none absolute inset-x-0 top-3 flex justify-center px-4">
+              <div
+                role="status"
+                className="pointer-events-auto w-full max-w-sm rounded-card border border-line bg-paper p-3 shadow-float"
+              >
+                <p className="text-sm">
+                  Recognizing text on page {s.ocr.page}…
+                  <span className="ml-1 text-muted tabular">
+                    ({s.ocr.done + 1} of {s.ocr.total})
+                  </span>
+                </p>
+                <Progress
+                  className="mt-2"
+                  label="Recognizing text"
+                  value={s.ocr.total ? s.ocr.done / s.ocr.total : null}
+                />
+                <p className="mt-2 text-[13px] text-muted">
+                  This page is a scan. Text recognition runs on this device
+                  {s.sentences ? '; you can read the other pages meanwhile' : ''}.
+                </p>
+              </div>
+            </div>
+          ) : null}
           {s.phase === 'ready' ? (
             <div className="pointer-events-none absolute inset-x-0 bottom-6 flex justify-center">
               <div className="pointer-events-auto">
@@ -396,11 +420,16 @@ export function LiveReader() {
                 onCancel={() => ctl.cancelExport()}
               />
             </div>
-            {s.emptyPages.length ? (
+            {s.ocrPages.length ? (
               <p className="mt-4 text-[13px] text-ink-2">
-                <strong className="font-semibold">Note:</strong> {s.emptyPages.length} page
-                {s.emptyPages.length > 1 ? 's have' : ' has'} no text layer (scanned). Text
-                recognition arrives in a later version.
+                Text on {s.ocrPages.length} scanned page{s.ocrPages.length > 1 ? 's was' : ' was'}{' '}
+                recognized on this device; a few words may be misread.
+              </p>
+            ) : null}
+            {s.emptyPages.length && !s.ocr ? (
+              <p className="mt-4 text-[13px] text-ink-2">
+                <strong className="font-semibold">Note:</strong> no readable text was found on{' '}
+                {s.emptyPages.length} page{s.emptyPages.length > 1 ? 's' : ''}.
               </p>
             ) : null}
           </div>

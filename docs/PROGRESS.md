@@ -14,8 +14,8 @@
 - [x] M9: Document mode (PDF), end to end
 - [x] M10: Reliability, performance and diagnostics hardening
 - [x] M11: Power features
-- [ ] M12: Online voices (opt-in)
-- [ ] M13: OCR for scanned PDFs (optional)
+- [ ] M12: Online voices (opt-in) — skipped at the owner's request (2026-10-29)
+- [x] M13: OCR for scanned PDFs (optional)
 - [ ] M14: Polish, audits and v1.0.0
 
 ## Decisions
@@ -28,6 +28,7 @@
 | [0017](adr/0017-reliability-diagnostics-and-budgets.md) | Fallback ladder, diagnostics, budgets, soak test, SLO results; COOP/COEP stays off; memory miss plan         |
 | [0018](adr/0018-onnx-external-data-and-idle-release.md) | WebGPU weights load as external data (WASM heap 757 → 33 MB); idle engines released after 5 min              |
 | [0019](adr/0019-power-features-and-audiobook-export.md) | Pronunciation editor, per-document rules, sleep timer, audiobook export (−17 LUFS, MP3/WAV, chapters)        |
+| [0020](adr/0020-offline-ocr.md)                         | Offline OCR with bundled tesseract.js: OCR words become PDF items, own text layer, per-page cache            |
 
 ## UI/UX skills installed (M0)
 
@@ -48,7 +49,7 @@ Installed into `.claude/skills/` by copying from pinned commits after reading ev
 
 ## Known issues
 
-- Scanned PDFs (no text layer) open but cannot be read until OCR (M13); the reader notes how many pages lack text.
+- OCR is English only, and poor scans (handwriting, skew, low resolution) read badly (ADR 0020).
 - PDF reading order is heuristic (ADR 0016); use "Show reading order" in the reader to spot mistakes.
 
 - Kokoro's f16 variants are silent on Apple M3 Max WebGPU, so the GPU holds fp32 weights (326 MB); revisit with newer onnxruntime-web (ADR 0018).
@@ -75,6 +76,16 @@ Throwaway code under `spikes/` (excluded from build, lint and typecheck). Reprod
 `pnpm spikes:setup && pnpm spikes:build && pnpm spikes:run`; results land in `spikes/out/` (gitignored).
 
 ## Manual QA scripts
+
+### M13
+
+1. Open a scanned PDF (a photo or scan of printed text, no selectable text) in the reader. A
+   status shows "Recognizing text on page 1… (1 of N)". Pages with real text can be played while
+   it runs.
+2. When it finishes, press Play: the word highlight and cursor sit on the scanned words, and
+   clicking a word starts reading there.
+3. Turn off Wi-Fi and open another scan: recognition still works.
+4. Close and reopen the first PDF: there is no recognition step this time (cached).
 
 ### M11
 

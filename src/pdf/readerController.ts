@@ -32,6 +32,11 @@ import { FollowScroller } from '@/web/follow';
 import { HighlightPainter } from '@/web/painter';
 import { blockAt, TextLayerMap } from './textLayerMap';
 import { PdfView, type OpenedPdf } from './viewer';
+import type { PdfItem } from './layout';
+import { ocrToItems } from './ocr';
+import { OcrEngine } from './ocrEngine';
+import { renderOcrLayer } from './ocrLayer';
+import { IdbOcrCache } from '@/platform/ocrCache';
 
 export interface ReaderState {
   phase: 'empty' | 'loading' | 'ready' | 'error';
@@ -61,6 +66,10 @@ export interface ReaderState {
   /** Rules chosen for this PDF (null: the defaults from Settings). */
   docRules: SkipRules | null;
   exportJob: ExportStatus | null;
+  /** Text recognition in progress on scanned pages (§8.5). */
+  ocr: { page: number; done: number; total: number } | null;
+  /** Pages whose text came from OCR. */
+  ocrPages: number[];
 }
 
 const INITIAL: ReaderState = {
@@ -89,6 +98,8 @@ const INITIAL: ReaderState = {
   sleep: null,
   docRules: null,
   exportJob: null,
+  ocr: null,
+  ocrPages: [],
 };
 
 export class ReaderController {
@@ -108,6 +119,9 @@ export class ReaderController {
   private segment: { blockId: string; sentenceId: string } | undefined;
   private readonly library = new IdbLibrary();
   private down: { x: number; y: number } | undefined;
+  private readonly ocrItems = new Map<number, PdfItem[]>();
+  private ocrEngine: OcrEngine | undefined;
+  private openToken = 0;
 
   attach(container: HTMLDivElement): void {
     if (this.view) return;
@@ -120,7 +134,10 @@ export class ReaderController {
     this.follow.onSuspendChange(() => this.set({}));
     this.view.on('pagechanging', (e) => this.set({ page: e.pageNumber ?? 1 }));
     this.view.on('textlayerrendered', (e) => {
-      if (e.pageNumber) this.map?.invalidate(e.pageNumber);
+      if (e.pageNumber) {
+        this.mountOcrLayer(e.pageNumber);
+        this.map?.invalidate(e.pageNumber);
+      }
       this.repaint();
     });
     this.view.on('scalechanging', () => this.repaint());
@@ -145,7 +162,9 @@ export class ReaderController {
 
   async openBytes(bytes: Uint8Array, fileName: string): Promise<void> {
     if (!this.view) throw new Error('attach() first');
-    this.set({ phase: 'loading', fileName, progress: null, error: null });
+    const token = ++this.openToken;
+    this.ocrItems.clear();
+    this.set({ phase: 'loading', fileName, progress: null, error: null, ocr: null, ocrPages: [] });
     try {
       const id = await savePdf(bytes);
       const opened = await this.view.open(bytes, id, fileName, (page, total) =>
@@ -168,15 +187,84 @@ export class ReaderController {
         docRules,
       });
       const saved = await this.library.getPosition(id);
-      await this.load(rules, saved ? undefined : 0, saved);
+      // A fully scanned PDF has nothing to read until OCR finishes.
+      if (opened.layout.blocks.length) await this.load(rules, saved ? undefined : 0, saved);
       // Opened documents join the library right away, so they can be reopened offline.
       const first = this.nav?.position(this.state.sentence, 0);
       if (first)
         await this.library.savePosition(saved ?? first, { title: opened.doc.title, kind: 'pdf' });
       if (import.meta.env.MODE === 'test') Object.assign(window, { __reader: this });
+      if (opened.layout.emptyPages.length)
+        void this.recognize(opened.layout.emptyPages, token, saved);
     } catch (e) {
       this.set({ phase: 'error', error: e instanceof Error ? e.message : String(e) });
     }
+  }
+
+  // ── OCR (§8.5) ───────────────────────────────────────────────────────────
+
+  /** Recognizes scanned pages in order (cached per document), then re-reads the document. */
+  private async recognize(
+    pages: number[],
+    token: number,
+    saved?: { sentenceId: string; word: number; docId: string; updatedAt: number },
+  ): Promise<void> {
+    const opened = this.opened;
+    const view = this.view;
+    const id = this.state.docId;
+    if (!opened || !view || !id) return;
+    const cache = new IdbOcrCache();
+    try {
+      for (const [i, page] of pages.entries()) {
+        if (token !== this.openToken) return;
+        this.set({ ocr: { page, done: i, total: pages.length } });
+        const size = opened.pages[page - 1];
+        if (!size) continue;
+        let items = await cache.get(id, page);
+        if (!items) {
+          this.ocrEngine ??= new OcrEngine();
+          items = ocrToItems(await this.ocrEngine.recognize(await view.renderForOcr(page)), size);
+          await cache.put(id, page, items);
+        }
+        if (token !== this.openToken) return;
+        opened.pages[page - 1] = { ...size, items };
+        if (items.length) this.ocrItems.set(page, items);
+        this.mountOcrLayer(page);
+      }
+      const layout = await view.relayout(opened.pages);
+      if (token !== this.openToken) return;
+      opened.layout = layout;
+      opened.doc = { ...opened.doc, blocks: layout.blocks };
+      this.map = new TextLayerMap(opened.pages, (p) => this.view?.pageDiv(p));
+      // Keep the place: the saved position, or where reading is now.
+      const at = this.nav?.position(this.state.sentence, 0) ?? saved;
+      const wasPlaying = this.state.state === 'playing';
+      this.set({ ocr: null, ocrPages: [...this.ocrItems.keys()], emptyPages: layout.emptyPages });
+      await this.load(this.state.rules, at ? undefined : 0, at);
+      if (wasPlaying) this.send({ type: 'PLAY' });
+      const first = this.nav?.position(this.state.sentence, 0);
+      if (first && !saved)
+        await this.library.savePosition(first, { title: opened.doc.title, kind: 'pdf' });
+      this.repaint();
+    } catch (e) {
+      this.set({
+        ocr: null,
+        notice: `Text recognition failed: ${e instanceof Error ? e.message : String(e)}`,
+      });
+    } finally {
+      void this.ocrEngine?.terminate();
+      this.ocrEngine = undefined;
+    }
+  }
+
+  /** (Re)builds the OCR text layer of a page whenever PDF.js renders it. */
+  private mountOcrLayer(page: number): void {
+    const items = this.ocrItems.get(page);
+    const div = this.view?.pageDiv(page);
+    const size = this.opened?.pages[page - 1];
+    if (!items || !div || !size) return;
+    renderOcrLayer(div, items, size);
+    this.map?.invalidate(page);
   }
 
   /** (Re)loads the player with reading rules applied, at a sentence or a saved position. */
@@ -439,6 +527,8 @@ export class ReaderController {
   }
 
   destroy(): void {
+    this.openToken++;
+    void this.ocrEngine?.terminate();
     cancelAnimationFrame(this.raf);
     this.painter.clear();
     this.cursor?.destroy();

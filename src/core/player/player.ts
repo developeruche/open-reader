@@ -4,6 +4,7 @@
  * the real backend and engine.
  */
 import { createActor, type Actor, type SnapshotFrom } from 'xstate';
+import { trimSilence } from '../audio/dsp';
 import { postProcess, type ProcessedAudio } from '../audio/process';
 import { estimateTimings, type WordTiming } from '../audio/timing';
 import { floatToInt16, int16ToFloat } from '../audio/wav';
@@ -80,6 +81,8 @@ export const WATCHDOG_MS = 500;
 export const STALL_MS = 2000;
 export const DRIFT_MS = 2000;
 export const STALLS_BEFORE_RESTART = 3;
+/** Planning estimate for system voices at rate 1 (re-anchored by word events while speaking). */
+const LIVE_SECONDS_PER_CHAR = 0.065;
 
 /** Above 2× we synthesize at 1.25× and divide the playback rate (§5.4.2). */
 export function modelSpeedFor(rate: number): number {
@@ -327,6 +330,7 @@ export class Player {
     const segment = this.segmentsFor(cursor.sentence)[cursor.part];
     if (!segment) throw new Error(`No segment at ${key}`);
     const engine = this.deps.engine;
+    if (engine.caps.live) return this.planLive(segment, voice);
     const ck = cacheKey({
       engineId: engine.id,
       modelId: this.deps.model.modelId,
@@ -360,13 +364,41 @@ export class Player {
     return { segment, audio, sync: this.syncWords(segment, audio.words), modelSpeed, fromCache };
   }
 
+  /** Live engines speak by themselves: plan estimated timings for the clock and highlights. */
+  private planLive(segment: SpokenSegment, voice: string): PreparedSegment {
+    const speech = Math.max(0.3, segment.spoken.length * LIVE_SECONDS_PER_CHAR);
+    const words = estimateTimings({
+      spoken: segment.spoken,
+      words: segment.words.map((w) => ({ start: w.spokenStart, end: w.spokenEnd })),
+      voicedStart: 0,
+      voicedEnd: speech,
+    });
+    const audio: ProcessedAudio = {
+      pcm: new Float32Array(0),
+      sampleRate: 24000,
+      words,
+      duration: speech + segment.pauseAfter,
+      speechEnd: speech,
+      utterance: { text: segment.spoken, voice, lang: this.deps.doc.lang },
+    };
+    return {
+      segment,
+      audio,
+      sync: this.syncWords(segment, words),
+      modelSpeed: 1,
+      fromCache: false,
+    };
+  }
+
   private estimate(segment: SpokenSegment, r: SynthesisResult): WordTiming[] {
     const words = segment.words.map((w) => ({ start: w.spokenStart, end: w.spokenEnd }));
+    // Spread words over the voiced region only, not the engine's leading/trailing silence.
+    const voiced = trimSilence(r.pcm, r.sampleRate, { marginMs: 0 });
     return estimateTimings({
       spoken: segment.spoken,
       words,
-      voicedStart: 0,
-      voicedEnd: r.pcm.length / r.sampleRate,
+      voicedStart: voiced.trimmedStart / r.sampleRate,
+      voicedEnd: (r.pcm.length - voiced.trimmedEnd) / r.sampleRate,
       pcm: r.pcm,
       sampleRate: r.sampleRate,
     });
@@ -425,7 +457,9 @@ export class Player {
   }
 
   private playbackRate(): number {
-    return this.settings.rate / modelSpeedFor(this.settings.rate);
+    return this.deps.engine.caps.live
+      ? this.settings.rate
+      : this.settings.rate / modelSpeedFor(this.settings.rate);
   }
 
   private startAudio(c: Cursor, loaded: boolean): void {
@@ -529,6 +563,14 @@ export class Player {
         this.current = undefined;
         this.stalls = 0;
         this.actor.send({ type: 'AUDIO_ENDED' });
+        break;
+      case 'progress':
+        this.emit({
+          type: 'DRIFT',
+          sessionId: this.deps.sessionId,
+          mediaTime: e.mediaTime,
+          atEpochMs: e.epochMs,
+        });
         break;
       case 'error':
         this.deps.onNotice?.({ kind: 'error', message: `Audio error: ${e.message}` });

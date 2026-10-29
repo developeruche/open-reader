@@ -5,6 +5,8 @@ import { RegistrySchema, type ModelManifest } from '@/core/tts/registry';
 import { modelDir } from '@/core/models/manager';
 import registryJson from '../../models/registry.json';
 import { RemoteEngine } from './rpc';
+import { SystemEngine } from './system/engine';
+import type { TtsApi } from './system/tts';
 import { TestEngine } from './test/engine';
 
 export const REGISTRY = RegistrySchema.parse(registryJson);
@@ -40,8 +42,29 @@ const KOKORO_CAPS: RenderEngine['caps'] = {
   requiresNetwork: false,
   backends: ['webgpu', 'wasm'],
 };
+const PIPER_CAPS: RenderEngine['caps'] = {
+  wordTimings: 'estimated',
+  maxChars: 400,
+  requiresNetwork: false,
+  backends: ['webgpu', 'wasm'],
+};
 
-export async function openEngine(choice: EngineChoice): Promise<EngineHandle> {
+export async function openEngine(
+  choice: EngineChoice,
+  env: { tts?: TtsApi } = {},
+): Promise<EngineHandle> {
+  if (choice.engineId === 'system') {
+    if (!env.tts) throw new Error('System voices are not available here');
+    const engine = new SystemEngine(env.tts);
+    return {
+      engineId: 'system',
+      modelId: 'system',
+      engine,
+      model: { modelId: 'system', version: '1' },
+      backend: 'system',
+      terminate: () => env.tts?.stop(),
+    };
+  }
   if (choice.engineId === 'kokoro') {
     const manifest = manifestFor(choice.modelId, 'kokoro');
     if (!manifest) throw new Error('Kokoro is not in the model registry');
@@ -54,6 +77,29 @@ export async function openEngine(choice: EngineChoice): Promise<EngineHandle> {
       const { backend } = await engine.init(manifest, { backend: choice.backend ?? 'auto' });
       return {
         engineId: 'kokoro',
+        modelId: manifest.id,
+        engine,
+        model: { modelId: manifest.id, version: manifest.version },
+        backend,
+        terminate: () => worker.terminate(),
+      };
+    } catch (e) {
+      worker.terminate();
+      throw e;
+    }
+  }
+  if (choice.engineId === 'piper') {
+    const manifest = manifestFor(choice.modelId, 'piper');
+    if (!manifest) throw new Error('Piper is not in the model registry');
+    const worker = new Worker(new URL('./piper/worker.ts', import.meta.url), {
+      type: 'module',
+      name: modelDir(manifest),
+    });
+    const engine = new RemoteEngine('piper', PIPER_CAPS, worker as unknown as Endpoint);
+    try {
+      const { backend } = await engine.init(manifest, { backend: choice.backend ?? 'auto' });
+      return {
+        engineId: 'piper',
         modelId: manifest.id,
         engine,
         model: { modelId: manifest.id, version: manifest.version },

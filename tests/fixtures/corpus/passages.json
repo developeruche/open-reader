@@ -1,0 +1,15 @@
+{
+  "note": "Reference passages for the voice bake-off, written for Open Reader (CC0). Add the owner's own articles under owner/ as plain text.",
+  "passages": [
+    { "id": "psbt-intro", "text": "A partially signed Bitcoin transaction is a container for a transaction that is not finished yet. Each wallet that touches it adds what it knows. Nobody has to trust anybody else with private keys." },
+    { "id": "psbt-roles", "text": "The creator proposes the inputs and outputs. The updater adds UTXO data, scripts and derivation paths. Each signer checks the amounts and adds a partial signature, and the finalizer extracts a transaction that is ready to broadcast." },
+    { "id": "fees", "text": "The fee was twelve sats per virtual byte for a transaction of one hundred and forty one virtual bytes. That is a little under two thousand sats in total. During busy periods the same transaction could easily cost five times as much." },
+    { "id": "taproot", "text": "Taproot lets a wallet hide unused spending conditions behind a single public key. When everyone agrees, the coins move with one Schnorr signature and the script is never revealed. Only when a dispute arises does the wallet reveal the branch it needs." },
+    { "id": "hardware", "text": "A hardware wallet can show the real fee before it signs, because the PSBT carries the full previous outputs. That closed an attack in which a malicious computer lied about the amounts being spent. It also means an air gapped device can sign from a QR code." },
+    { "id": "reading", "text": "Reading aloud is slower than reading silently, but it frees your eyes. Many people listen to long articles while walking, cooking or commuting. A cursor that follows the voice helps you find your place when you look back at the page." },
+    { "id": "numbers", "text": "Version 32.0 shipped on the 21st of the month with forty two fixes. Tests ran three to five milliseconds faster on average. The download is about three hundred megabytes and installs in under a minute." },
+    { "id": "dialogue", "text": "She asked whether the backup was safe. He said the seed words were written on steel and kept in two separate places. Neither of them wanted to find out what happens when a single copy burns." },
+    { "id": "history", "text": "In the early years, most people ran the reference client on ordinary laptops. Mining moved to specialized hardware, but validating the chain still works on a small computer. Running your own node remains the best way to verify the rules yourself." },
+    { "id": "privacy", "text": "Every input you combine in one transaction links those coins together. Careful wallets avoid merging coins from different sources. Others use collaborative transactions so that an observer cannot tell which input paid which output." }
+  ]
+}

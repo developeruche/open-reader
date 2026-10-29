@@ -4,6 +4,8 @@ import type { ProcessedAudio } from '../audio/process';
 export type BackendEvent =
   /** Audio is audible; `mediaTime` was current at `epochMs`. */
   | { type: 'started'; mediaTime: number; epochMs: number }
+  /** Live speech reached a word boundary: re-anchor the clock (system voices). */
+  | { type: 'progress'; mediaTime: number; epochMs: number }
   | { type: 'ended' }
   | { type: 'error'; message: string };
 

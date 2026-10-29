@@ -34,6 +34,8 @@ export interface EngineCaps {
   maxChars: number;
   requiresNetwork: boolean;
   backends: Backend[];
+  /** Speaks by itself (chrome.tts); the player plans timings but never gets PCM. */
+  live?: boolean;
 }
 
 export interface InitOptions {

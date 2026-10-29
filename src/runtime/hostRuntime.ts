@@ -12,6 +12,8 @@ import type { HostCommand, HostEvent, HostKind, HostStatus, SessionSettings } fr
 export interface HostRuntimeDeps {
   kind: HostKind;
   backend: PlaybackBackend & { audibleCount?(): number };
+  /** Backend for live engines (system voices via chrome.tts). */
+  liveBackend?: PlaybackBackend & { audibleCount?(): number };
   engineFor(
     settings: SessionSettings,
   ): Promise<{ engine: RenderEngine; model: { modelId: string; version: string } }>;
@@ -23,10 +25,13 @@ export interface HostRuntimeDeps {
 
 export class HostRuntime {
   player: Player | undefined;
+  private activeBackend: HostRuntimeDeps['backend'];
   private sessionId: string | undefined;
   private doc: ReadingDocument | undefined;
 
-  constructor(private readonly deps: HostRuntimeDeps) {}
+  constructor(private readonly deps: HostRuntimeDeps) {
+    this.activeBackend = deps.backend;
+  }
 
   hello(): void {
     this.deps.emit({ type: 'HELLO', host: this.deps.kind, status: this.status() });
@@ -44,7 +49,7 @@ export class HostRuntime {
       voice: s.context.voice,
       sentenceCount: p.nav.length,
       error: s.context.error?.message ?? null,
-      audible: this.deps.backend.audibleCount?.() ?? (p.state === 'playing' ? 1 : 0),
+      audible: this.activeBackend.audibleCount?.() ?? (p.state === 'playing' ? 1 : 0),
     };
   }
 
@@ -105,11 +110,13 @@ export class HostRuntime {
     this.sessionId = cmd.sessionId;
     this.doc = cmd.doc;
     const sessionId = cmd.sessionId;
+    this.activeBackend =
+      engine.caps.live && this.deps.liveBackend ? this.deps.liveBackend : this.deps.backend;
     const player = new Player({
       doc: cmd.doc,
       engine,
       model,
-      backend: this.deps.backend,
+      backend: this.activeBackend,
       sessionId,
       cache: this.deps.cache,
       settings: { rate: cmd.settings.rate, voice: cmd.settings.voice, pacing: cmd.settings.pacing },

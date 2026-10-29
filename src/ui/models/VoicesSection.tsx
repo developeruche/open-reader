@@ -3,6 +3,7 @@ import type { ModelManifest } from '@/core/tts/registry';
 import { filesFor } from '@/core/models/manager';
 import { Cpu } from '../icons';
 import { Badge, Button, Dialog, Progress } from '../components';
+import { SystemVoices } from './SystemVoices';
 import { useModels } from './useModels';
 
 const mb = (b: number) => `${Math.round(b / 1e6)} MB`;
@@ -164,6 +165,11 @@ export function VoicesSection() {
           );
         })}
       </ul>
+
+      <SystemVoices
+        currentVoice={m.voice?.engineId === 'system' ? m.voice.voice : null}
+        onChange={() => void m.refresh()}
+      />
 
       <Dialog
         open={!!confirm}

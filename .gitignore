@@ -37,3 +37,5 @@ spikes/extension/public/ort/
 spikes/extension/public/piper/
 spikes/extension/public/headtts/
 spikes/extension/public/pdfjs/
+quality/.pytest_cache/
+**/__pycache__/

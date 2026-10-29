@@ -170,10 +170,21 @@ describe('estimated timings', () => {
     expect(est).toHaveLength(words.length);
     expect(est[0]!.start).toBeCloseTo(0.1);
     expect(est.at(-1)!.end).toBeLessThanOrEqual(3.1 + 1e-9);
-    for (let i = 1; i < est.length; i++)
-      expect(est[i]!.start).toBeGreaterThanOrEqual(est[i - 1]!.end - 1e-9);
-    // The comma after "world" leaves a pause before "this".
-    expect(est[2]!.start - est[1]!.end).toBeGreaterThan(0.1);
+    // Words are contiguous: each lasts until the next starts.
+    for (let i = 1; i < est.length; i++) expect(est[i]!.start).toBeCloseTo(est[i - 1]!.end, 9);
+    // The comma after "world" delays "this" compared with the same sentence without it.
+    const plain = 'Hello world  this is a transaction.';
+    const plainWords = [...plain.matchAll(/\w+/g)].map((m) => ({
+      start: m.index,
+      end: m.index + m[0].length,
+    }));
+    const noComma = estimateTimings({
+      spoken: plain,
+      words: plainWords,
+      voicedStart: 0.1,
+      voicedEnd: 3.1,
+    });
+    expect(est[2]!.start - est[1]!.start).toBeGreaterThan(noComma[2]!.start - noComma[1]!.start);
     expect(estimateTimings({ spoken: '', words: [], voicedStart: 0, voicedEnd: 1 })).toEqual([]);
   });
 
@@ -193,8 +204,9 @@ describe('estimated timings', () => {
       pcm,
       sampleRate: SR,
     });
-    expect(est[1]!.end).toBeCloseTo(0.6, 1);
+    // "three" starts where speech resumes after the silence.
     expect(est[2]!.start).toBeCloseTo(0.85, 1);
+    expect(est[1]!.end).toBeCloseTo(est[2]!.start, 9);
   });
 
   it('wordAt and boundaryError', () => {

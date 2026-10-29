@@ -5,9 +5,12 @@
 | Model                                 | Source (pinned revision)                                      | Size                                                 | License                                        | Notes                                                                                                                            |
 | ------------------------------------- | ------------------------------------------------------------- | ---------------------------------------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | Kokoro-82M v1.0 timestamped ONNX      | `onnx-community/Kokoro-82M-v1.0-ONNX-timestamped` @ `dd4401a` | 326 MB (WebGPU fp32) / 92 MB (WASM q8) + 2 MB voices | Apache-2.0                                     | Default. Native word timings. fp16 rejected (silent output, ADR 0003). Voices: `af_heart`, `am_michael`, `bf_emma`, `bm_george`. |
-| Piper `en_US-lessac-high` ("Classic") | `rhasspy/piper-voices` @ `5041a7a`                            | 114 MB                                               | Model MIT; **training data research-use only** | `personalUseOnly: true`; notice shown before install. Engine in M7.                                                              |
+| Piper `en_US-lessac-high` ("Classic") | `rhasspy/piper-voices` @ `5041a7a`                            | 114 MB                                               | Model MIT; **training data research-use only** | `personalUseOnly: true`; notice shown before install. Estimated timings (110 ms mean error, ADR 0014).                           |
 | Piper `en_US-lessac-medium`           | same                                                          | 63 MB                                                | same                                           | `personalUseOnly: true`                                                                                                          |
 | Piper `en_US-ljspeech-high`           | same                                                          | 114 MB                                               | Model MIT; LJSpeech public domain              |                                                                                                                                  |
+
+System voices (`chrome.tts`) need no download; online system voices are hidden while Strict
+offline is on.
 
 Supporting data bundled with the extension: the en-us pronunciation dictionary from HeadTTS
 (CMUdict 0.07 derivative, BSD-style license kept in the file header).

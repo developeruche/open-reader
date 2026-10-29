@@ -3,6 +3,9 @@ import { IdbLibrary } from './library';
 import { closeOffscreen, ensureOffscreen, offscreenExists } from './offscreen';
 import { ChromeSessionStore } from './session';
 import { loadSettings } from './settings';
+import { chromeTts } from './tts';
+import { INSTALLED_KEY, type InstalledIndex } from '@/core/models/manager';
+import { localStore } from './kv';
 import { Orchestrator, type DebugEvent } from '@/runtime/orchestrator';
 import {
   DEFAULT_SESSION_SETTINGS,
@@ -10,6 +13,7 @@ import {
   PORT,
   type ContentMessage,
   type ContentUpdate,
+  type HostCommand,
   type HostEvent,
   type UiMessage,
   type UiUpdate,
@@ -23,6 +27,7 @@ export function startBackground(): void {
   void browser.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 
   const debugLog: DebugEvent[] = [];
+  const tts = chromeTts();
   const uiPorts = new Set<Browser.runtime.Port>();
   const contentPorts = new Map<number, Browser.runtime.Port>();
   const pendingExtract = new Map<number, boolean>();
@@ -64,8 +69,16 @@ export function startBackground(): void {
     },
     async settings() {
       const s = await loadSettings();
-      // Test builds read with the deterministic TestEngine unless a test chose a voice.
-      const voice = s.voice ?? (TEST ? null : { engineId: 'kokoro' as const, voice: 'af_heart' });
+      // Default: the chosen voice; else Kokoro if installed; else system voices (zero download).
+      // Test builds use the deterministic TestEngine unless a test chose a voice.
+      let voice = s.voice;
+      if (!voice && !TEST) {
+        const installed = (await localStore().get<InstalledIndex>(INSTALLED_KEY)) ?? {};
+        const kokoro = Object.values(installed).find((m) => m.modelId.startsWith('kokoro'));
+        voice = kokoro
+          ? { engineId: 'kokoro', modelId: kokoro.modelId, voice: 'af_heart' }
+          : { engineId: 'system', voice: '' };
+      }
       if (!voice) return { ...DEFAULT_SESSION_SETTINGS, rate: s.rate, pacing: s.pacing };
       return {
         rate: s.rate,
@@ -96,7 +109,19 @@ export function startBackground(): void {
       case PORT.inpageHost: {
         const kind = port.name === PORT.engineHost ? 'offscreen' : 'inpage';
         orch.hostConnected(kind, { send: (cmd) => port.postMessage(cmd) });
-        port.onMessage.addListener((m: unknown) => void orch.hostEvent(kind, m as HostEvent));
+        port.onMessage.addListener((m: unknown) => {
+          const e = m as HostEvent;
+          // The offscreen host has no chrome.tts: speak for it and relay word events back.
+          if (e.type === 'TTS') {
+            if (e.op === 'speak')
+              tts.speak(e.text, e.options, (event) =>
+                port.postMessage({ type: 'TTS_EVENT', id: e.id, event } satisfies HostCommand),
+              );
+            else tts[e.op]();
+            return;
+          }
+          void orch.hostEvent(kind, e);
+        });
         port.onDisconnect.addListener(() => void orch.hostDisconnected(kind));
         break;
       }

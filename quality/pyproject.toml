@@ -1,0 +1,12 @@
+[project]
+name = "open-reader-quality"
+version = "0.1.0"
+description = "ASR-based audio quality harness for Open Reader (faster-whisper, WER)"
+requires-python = ">=3.10,<3.14"
+dependencies = [
+  "faster-whisper==1.2.1",
+  "numpy>=2.0",
+]
+
+[tool.uv]
+package = false

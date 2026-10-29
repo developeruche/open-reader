@@ -15,6 +15,7 @@ const models = {
   repair: vi.fn(),
   setDefault: vi.fn(),
   benchmark: vi.fn(),
+  refresh: vi.fn(),
 };
 let modelState: Record<string, unknown> = {};
 vi.mock('@/ui/models/useModels', () => ({
@@ -32,7 +33,18 @@ vi.mock('@/ui/models/useModels', () => ({
   }),
 }));
 vi.mock('@/runtime/models', () => ({ playSample: vi.fn(async () => undefined) }));
-vi.mock('@/platform/settings', () => ({ saveSettings: vi.fn(async () => ({})) }));
+vi.mock('@/platform/settings', () => ({
+  saveSettings: vi.fn(async () => ({})),
+  loadSettings: vi.fn(async () => ({ strictOffline: true })),
+}));
+vi.mock('@/platform/tts', () => ({
+  chromeTts: () => ({
+    getVoices: async () => [
+      { voiceName: 'Samantha', lang: 'en-US', remote: false },
+      { voiceName: 'Google US English', lang: 'en-US', remote: true },
+    ],
+  }),
+}));
 
 const { SidePanelApp } = await import('@/ui/shells/SidePanelApp');
 const { ReaderApp } = await import('@/ui/shells/ReaderApp');
@@ -126,6 +138,15 @@ describe('OptionsApp', () => {
     await userEvent.click(screen.getByRole('link', { name: 'Online voices' }));
     await userEvent.click(screen.getByRole('switch', { name: 'Use online voices' }));
     await userEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
+  });
+
+  it('lists local system voices and hides online ones in strict offline mode', async () => {
+    wrap(<OptionsApp useAppearance={appearance()} />);
+    expect(await screen.findByText('Samantha', { exact: false })).toBeTruthy();
+    expect(screen.queryByText('Google US English', { exact: false })).toBeNull();
+    await userEvent.click(screen.getByRole('switch', { name: 'Strict offline' }));
+    expect(await screen.findByText('Online')).toBeTruthy();
+    await userEvent.click(screen.getAllByRole('button', { name: 'Set as default' }).at(-1)!);
   });
 
   it('installs models, confirming license notices', async () => {

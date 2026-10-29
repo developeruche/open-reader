@@ -9,7 +9,7 @@
 - [x] M4: Audio pipeline and player core
 - [x] M5: Extension runtime, hosts and messaging
 - [x] M6: Model manager and the default engine (Kokoro)
-- [ ] M7: Piper, system voices and the voice bake-off
+- [x] M7: Piper, system voices and the voice bake-off
 - [ ] M8: Web mode, end to end
 - [ ] M9: Document mode (PDF), end to end
 - [ ] M10: Reliability, performance and diagnostics hardening
@@ -44,6 +44,9 @@ Installed into `.claude/skills/` by copying from pinned commits after reading ev
 
 ## Known issues
 
+- ASR heard "Schnorr" (respelled "shnor") as "snore"; confirm by ear (ADR 0014).
+- The owner's own articles are not yet in `tests/fixtures/corpus/owner/`; the harness uses project-written passages.
+
 - HeadTTS's G2P reads a standalone spelled letter "A" (in acronyms such as "A P I") as "uh". Most
   acronyms are unaffected; revisit with the M7 quality harness.
 - The runtime "voice is too slow" suggestion (§6.4.4) has its monitor (`RtfMonitor`) but is wired
@@ -63,6 +66,16 @@ Throwaway code under `spikes/` (excluded from build, lint and typecheck). Reprod
 `pnpm spikes:setup && pnpm spikes:build && pnpm spikes:run`; results land in `spikes/out/` (gitignored).
 
 ## Manual QA scripts
+
+### M7
+
+1. Options → Voices & models: install "Classic (lessac high)"; the personal-use notice appears first.
+2. Set it as default and read an article: you hear the Classic voice; the highlight follows
+   estimated timings (watch for words lagging by more than a beat).
+3. System voices: pick a local voice as default and read a page; turn Strict offline off to see
+   online voices labelled "Online".
+4. Optional: `pnpm build:test && pnpm models:fetch all && pnpm synth:corpus`, then open
+   `quality/out/<run>/index.html` and `pnpm quality quality/out/<run>`.
 
 ### M6
 

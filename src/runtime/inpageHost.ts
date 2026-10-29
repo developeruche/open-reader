@@ -5,6 +5,8 @@
 import type { ReadingDocument } from '@/core/document/model';
 import { openEngine, type EngineHandle } from '@/engines/factory';
 import { RenderedBackend } from '@/engines/playback/rendered';
+import { LiveBackend } from '@/engines/system/liveBackend';
+import { chromeTts } from '@/platform/tts';
 import { IdbSynthesisCache } from '@/platform/audioCache';
 import { connectWithRetry } from '@/platform/ports';
 import { HostRuntime } from './hostRuntime';
@@ -29,10 +31,12 @@ export interface InPageHost {
 export function createInPageHost(onEvent?: (e: HostEvent) => void): InPageHost {
   let handle: EngineHandle | undefined;
   const backend = new RenderedBackend();
+  const tts = chromeTts();
   const sessionId = `inpage-${crypto.randomUUID()}`;
   const runtime: HostRuntime = new HostRuntime({
     kind: 'inpage',
     backend,
+    liveBackend: new LiveBackend(tts),
     cache: new IdbSynthesisCache(),
     async engineFor(settings) {
       if (
@@ -41,7 +45,7 @@ export function createInPageHost(onEvent?: (e: HostEvent) => void): InPageHost {
         (settings.backend && handle.backend !== settings.backend)
       ) {
         handle?.terminate();
-        handle = await openEngine(settings);
+        handle = await openEngine(settings, { tts });
       }
       return handle;
     },
@@ -57,7 +61,7 @@ export function createInPageHost(onEvent?: (e: HostEvent) => void): InPageHost {
   });
   const port = connectWithRetry<HostCommand, HostEvent>({
     name: PORT.inpageHost,
-    onMessage: (cmd) => void runtime.handle(cmd),
+    onMessage: (cmd) => (cmd.type === 'TTS_EVENT' ? undefined : void runtime.handle(cmd)),
     onConnect: () => runtime.hello(),
   });
   return {

@@ -14,6 +14,14 @@ const RUNTIME_ASSETS: [src: string, dest: string][] = [
     'ort/ort-wasm-simd-threaded.asyncify.wasm',
   ],
   ['assets/g2p/en-us.txt', 'g2p/en-us.txt'],
+  [
+    'node_modules/@diffusionstudio/piper-wasm/build/piper_phonemize.wasm',
+    'piper/piper_phonemize.wasm',
+  ],
+  [
+    'node_modules/@diffusionstudio/piper-wasm/build/piper_phonemize.data',
+    'piper/piper_phonemize.data',
+  ],
 ];
 
 /**

@@ -18,6 +18,8 @@ export const SettingsSchema = z.object({
   skipRules: SkipRulesSchema.default(SkipRulesSchema.parse({})),
   cacheCapMB: z.number().int().min(64).max(8192).default(512),
   onboarded: z.boolean().default(false),
+  /** Hide and never use voices that need the network (§6.5). */
+  strictOffline: z.boolean().default(true),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 

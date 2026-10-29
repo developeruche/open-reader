@@ -1,0 +1,12 @@
+{
+  "model": "small.en",
+  "voices": {
+    "kokoro:af_heart": 0.0315,
+    "kokoro:am_michael": 0.0315,
+    "kokoro:bf_emma": 0.0236,
+    "kokoro:bm_george": 0.0236,
+    "piper:en_US-lessac-high": 0.0289,
+    "piper:en_US-lessac-medium": 0.0236,
+    "piper:en_US-ljspeech-high": 0.021
+  }
+}

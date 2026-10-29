@@ -165,6 +165,7 @@ export function useModels() {
     : null;
 
   return {
+    refresh,
     models: REGISTRY.models.filter((m) => m.engine !== 'test'),
     installed,
     jobs,

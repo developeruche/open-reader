@@ -8,6 +8,7 @@ import type { Cursor, PlayerEvent, PlayerStateValue } from '@/core/player/machin
 import type { PlayerNotice } from '@/core/player/player';
 import type { SyncEvent } from '@/core/player/sync';
 import type { PacingPreset } from '@/core/text/pacing';
+import type { TtsEvent, TtsSpeakOptions } from '@/engines/system/tts';
 
 export const PORT = {
   engineHost: 'engine-host',
@@ -64,7 +65,9 @@ export type HostCommand =
       autoplay: boolean;
     }
   | { type: 'PLAYER'; sessionId: string; event: PlayerEvent }
-  | { type: 'UNLOAD'; sessionId: string };
+  | { type: 'UNLOAD'; sessionId: string }
+  /** chrome.tts events relayed to the offscreen host (it has no chrome.tts). */
+  | { type: 'TTS_EVENT'; id: number; event: TtsEvent };
 
 // ── engine host → background ───────────────────────────────────────────────
 export interface HostStatus {
@@ -84,7 +87,10 @@ export type HostEvent =
   | { type: 'STATUS'; status: HostStatus }
   | { type: 'SYNC'; event: SyncEvent }
   | { type: 'POSITION'; position: ReadingPosition }
-  | { type: 'NOTICE'; sessionId: string; notice: PlayerNotice };
+  | { type: 'NOTICE'; sessionId: string; notice: PlayerNotice }
+  /** The offscreen host asks the background to drive chrome.tts. */
+  | { type: 'TTS'; op: 'speak'; id: number; text: string; options: TtsSpeakOptions }
+  | { type: 'TTS'; op: 'pause' | 'resume' | 'stop' };
 
 // ── UI ↔ background ─────────────────────────────────────────────────────────
 const playerCommands = [

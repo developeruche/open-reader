@@ -17,6 +17,8 @@ export interface ProcessedAudio {
   duration: number;
   /** Where speech ends and the structural pause begins. */
   speechEnd: number;
+  /** Live engines (system voices) speak this text instead of playing `pcm`. */
+  utterance?: { text: string; voice: string; lang: string };
 }
 
 export interface ProcessOptions {

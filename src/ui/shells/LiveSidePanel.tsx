@@ -151,9 +151,12 @@ export function LiveSidePanel({ useAppearance }: { useAppearance: useAppearanceH
                   Open in Open Reader
                 </Button>
               ) : (
-                <Button variant="primary" onClick={readPage} disabled={tabId === undefined}>
-                  Read this page
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="primary" onClick={readPage} disabled={tabId === undefined}>
+                    Read this page
+                  </Button>
+                  <Button onClick={() => openReader()}>Open a PDF…</Button>
+                </div>
               )
             }
           />

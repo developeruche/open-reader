@@ -1,4 +1,5 @@
 .output
+open-reader-*-chrome
 .wxt
 coverage
 playwright-report

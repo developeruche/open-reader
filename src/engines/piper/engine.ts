@@ -59,6 +59,9 @@ export class PiperEngine implements RenderEngine {
     if (!onnx || !json) throw new Error('Piper model needs .onnx and .onnx.json files');
     const ort = (this.ort ??= await (this.deps.loadOrt?.() ?? import('onnxruntime-web/webgpu')));
     ort.env.wasm.wasmPaths = this.deps.ortBase;
+    // ORT warns when it keeps small shape ops on the CPU, which is normal here; those warnings
+    // filled chrome://extensions → Errors. Only real errors are logged.
+    ort.env.logLevel = 'error';
     ort.env.wasm.numThreads =
       this.backend === 'wasm'
         ? Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 2))
@@ -71,6 +74,7 @@ export class PiperEngine implements RenderEngine {
     await this.session?.release();
     const input = sessionInput(new Uint8Array(weights), this.backend);
     this.session = await ort.InferenceSession.create(input.model, {
+      logSeverityLevel: 3,
       ...(input.externalData ? { externalData: input.externalData } : {}),
       executionProviders: [this.backend],
     });

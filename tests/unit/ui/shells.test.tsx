@@ -110,6 +110,9 @@ describe('LiveSidePanel', () => {
       tabId: 7,
     };
     wrap(<LiveSidePanel useAppearance={appearance()} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Open a PDF…' }));
+    const { openReader } = await import('@/platform/tabs');
+    expect(openReader).toHaveBeenCalledWith();
     await userEvent.click(screen.getByRole('button', { name: 'Read this page' }));
     expect(sent).toContainEqual({ type: 'READ_TAB', tabId: 7 });
   });

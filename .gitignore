@@ -1,6 +1,8 @@
 # Dependencies and build output
 node_modules
 .output
+# An unzipped release build loaded into Chrome
+open-reader-*-chrome/
 .wxt
 stats.html
 stats-*.json

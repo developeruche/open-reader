@@ -143,7 +143,7 @@ export function LiveSidePanel({ useAppearance }: { useAppearance: useAppearanceH
             title="Nothing is playing"
             body={
               session?.error ??
-              'Read the article in this tab, or right-click any page and choose Read page from here. Alt+click a word to start there.'
+              'Read the article in this tab, or open a PDF from your computer. You can also right-click any page and choose Read page from here, or Alt+click a word to start there.'
             }
             action={
               pdfUrl ? (

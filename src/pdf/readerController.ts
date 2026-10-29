@@ -199,7 +199,9 @@ export class ReaderController {
   // ── transport ─────────────────────────────────────────────────────────────
 
   send(e: PlayerEvent): void {
-    this.host?.runtime.player?.send(e);
+    const h = this.host;
+    // Through the runtime, so an engine released while idle is reloaded first (ADR 0017).
+    if (h) void h.runtime.handle({ type: 'PLAYER', sessionId: h.sessionId, event: e });
   }
 
   goToPage(n: number): void {

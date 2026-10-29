@@ -48,7 +48,7 @@ pnpm quality quality/out/<run> --update-baseline   # after a deliberate change
   without document text, and the copied JSON.
 - `tests/models/slo.spec.ts` measures cold start, warm first audio, RTF, buffer ahead, stalls,
   recovery after the offscreen document closes (Kokoro and Piper), and memory with Kokoro reading
-  the 100-page PDF. Timings come from the service worker's debug log; memory is the sum of macOS
+  the 100-page PDF for 2 minutes (what Open Reader adds on top of Chrome with a blank page, ADR 0018). Timings come from the service worker's debug log; memory is the sum of macOS
   physical footprints (`footprint`) over the browser's process tree (RSS elsewhere).
 - `pnpm budgets` runs in CI after `pnpm build` (ADR 0017).
 
@@ -56,17 +56,17 @@ pnpm quality quality/out/<run> --update-baseline   # after a deliberate change
 
 Apple M3 Max, macOS 26.6, Playwright Chromium, 2026-10-29.
 
-| Metric                                      | Target         | Measured                                                                                                      | Status                   |
-| ------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| Time to first audio, warm voice             | ≤ 800 ms       | Kokoro WebGPU 498–573 ms; Piper Classic WebGPU 240–251 ms                                                     | Met                      |
-| Cold start (load from OPFS + init)          | ≤ 6 s          | Kokoro 1.5–2.2 s; Piper 2.1–3.0 s                                                                             | Met                      |
-| Stalls mid-playback                         | Zero           | 0 (models: 25 s per voice; soak: 0 over 10 min, longest boundary wait 13 ms)                                  | Met                      |
-| Buffer ahead of the playhead                | ≥ 20 s         | Kokoro 26.7 s; Piper 24.4 s; soak minimum 20.7 s                                                              | Met                      |
-| Recovery after the engine host restarts     | ≤ 3 s          | Offscreen closed: Kokoro 0.9–1.9 s, Piper 1.7–2.5 s, same sentence                                            | Met                      |
-| Recovery after the service worker is killed | ≤ 3 s          | The host keeps playing; the worker restores from `storage.session` (E2E)                                      | Met                      |
-| Position persisted                          | Every sentence | Saved on each boundary; reopening resumes at the saved sentence (E2E)                                         | Met                      |
-| Highlight drift over 10 minutes             | ≤ 50 ms        | 10-min soak: steady state p99 0.9 ms, max 16.5 ms (209 samples); start-up settle ≤ 67 ms, corrected at 300 ms | Met                      |
-| Side panel JS (excluding engines)           | ≤ 300 KB gz    | 156.9 KB                                                                                                      | Met                      |
-| PDF: first page of a 100-page PDF           | ≤ 2 s          | 54 ms                                                                                                         | Met                      |
-| PDF: layout analysis                        | ≤ 50 ms / page | 0.35 ms per page (35 ms for 100 pages)                                                                        | Met                      |
-| Memory (Kokoro fp32 WebGPU + 100-page PDF)  | ≤ 1.5 GB       | ≈ 2.35–2.4 GB peak (renderer 1.08 GB + GPU process 0.87 GB)                                                   | Missed: plan in ADR 0017 |
+| Metric                                      | Target         | Measured                                                                                                      | Status |
+| ------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------- | ------ |
+| Time to first audio, warm voice             | ≤ 800 ms       | Kokoro WebGPU 498–573 ms; Piper Classic WebGPU 240–251 ms                                                     | Met    |
+| Cold start (load from OPFS + init)          | ≤ 6 s          | Kokoro 1.5–2.2 s; Piper 2.1–3.0 s                                                                             | Met    |
+| Stalls mid-playback                         | Zero           | 0 (models: 25 s per voice; soak: 0 over 10 min, longest boundary wait 13 ms)                                  | Met    |
+| Buffer ahead of the playhead                | ≥ 20 s         | Kokoro 26.7 s; Piper 24.4 s; soak minimum 20.7 s                                                              | Met    |
+| Recovery after the engine host restarts     | ≤ 3 s          | Offscreen closed: Kokoro 0.9–1.9 s, Piper 1.7–2.5 s, same sentence                                            | Met    |
+| Recovery after the service worker is killed | ≤ 3 s          | The host keeps playing; the worker restores from `storage.session` (E2E)                                      | Met    |
+| Position persisted                          | Every sentence | Saved on each boundary; reopening resumes at the saved sentence (E2E)                                         | Met    |
+| Highlight drift over 10 minutes             | ≤ 50 ms        | 10-min soak: steady state p99 0.9 ms, max 16.5 ms (209 samples); start-up settle ≤ 67 ms, corrected at 300 ms | Met    |
+| Side panel JS (excluding engines)           | ≤ 300 KB gz    | 156.9 KB                                                                                                      | Met    |
+| PDF: first page of a 100-page PDF           | ≤ 2 s          | 54 ms                                                                                                         | Met    |
+| PDF: layout analysis                        | ≤ 50 ms / page | 0.35 ms per page (35 ms for 100 pages)                                                                        | Met    |
+| Memory (Kokoro fp32 WebGPU + 100-page PDF)  | ≤ 1.5 GB       | 1.09 GB added by Open Reader (browser total 1.83 GB; extension renderer 0.46 GB, ADR 0018)                    | Met    |

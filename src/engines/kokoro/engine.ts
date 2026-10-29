@@ -3,6 +3,7 @@
  * (PLAN.md §6.2, ADR 0003). Runs inside a worker; model files come from OPFS or a URL.
  */
 import type * as Ort from 'onnxruntime-web';
+import { sessionInput } from '../onnx/externalize';
 import {
   AbortError,
   type EngineCaps,
@@ -93,7 +94,10 @@ export class KokoroEngine implements RenderEngine {
       label: `Starting ${this.backend === 'webgpu' ? 'WebGPU' : 'WASM'}`,
     });
     await this.session?.release();
-    this.session = await ort.InferenceSession.create(new Uint8Array(weights), {
+    const input = sessionInput(new Uint8Array(weights), this.backend);
+    this.session = await ort.InferenceSession.create(input.model, {
+      // External data keeps ORT's WASM heap at ≈ 33 MB instead of 757 MB (ADR 0018).
+      ...(input.externalData ? { externalData: input.externalData } : {}),
       // Kokoro's inputs vary in length: the default 'bucket' cache keeps a buffer per size bucket
       // and grew GPU memory past 1.8 GB over a long read. Release buffers after each run (ADR 0017).
       executionProviders: [

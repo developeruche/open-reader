@@ -3,6 +3,7 @@
  * ADR 0004). WebGPU or multi-threaded WASM; word timings are estimated by the player (§5.4.4).
  */
 import type * as Ort from 'onnxruntime-web';
+import { sessionInput } from '../onnx/externalize';
 import {
   AbortError,
   type EngineCaps,
@@ -68,7 +69,9 @@ export class PiperEngine implements RenderEngine {
     ]);
     this.config = JSON.parse(new TextDecoder().decode(cfg)) as PiperConfig;
     await this.session?.release();
-    this.session = await ort.InferenceSession.create(new Uint8Array(weights), {
+    const input = sessionInput(new Uint8Array(weights), this.backend);
+    this.session = await ort.InferenceSession.create(input.model, {
+      ...(input.externalData ? { externalData: input.externalData } : {}),
       executionProviders: [this.backend],
     });
     return { backend: this.backend };

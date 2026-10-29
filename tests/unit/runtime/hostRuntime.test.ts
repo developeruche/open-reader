@@ -270,3 +270,53 @@ describe('HostRuntime fallback ladder (§9.2)', () => {
     rt.dispose();
   });
 });
+
+describe('HostRuntime idle engine release (ADR 0017)', () => {
+  beforeEach(() =>
+    vi.useFakeTimers({
+      toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
+    }),
+  );
+  afterEach(() => vi.useRealTimers());
+
+  it('releases the engine after an idle stretch and reloads it at the same sentence on Play', async () => {
+    const opened: number[] = [];
+    let resets = 0;
+    const rt = new HostRuntime({
+      kind: 'inpage',
+      backend: new FakeBackend(),
+      engineFor: async () => {
+        opened.push(Date.now());
+        return { engine: new TestEngine(), model: { modelId: 't', version: '1' } };
+      },
+      emit: () => undefined,
+      resetEngine: () => void resets++,
+      idleReleaseMs: 60_000,
+    });
+    await rt.handle({
+      type: 'LOAD',
+      sessionId: 's',
+      doc,
+      start: { sentence: 0, word: 0 },
+      settings: DEFAULT_SESSION_SETTINGS,
+      autoplay: true,
+    });
+    await vi.advanceTimersByTimeAsync(1500);
+    await rt.handle({ type: 'PLAYER', sessionId: 's', event: { type: 'PAUSE' } });
+    const at = rt.status()?.cursor.sentence;
+    await vi.advanceTimersByTimeAsync(59_000);
+    expect(rt.engineReleased).toBe(false);
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(rt.engineReleased).toBe(true);
+    expect(resets).toBe(1);
+    await rt.handle({ type: 'PLAYER', sessionId: 's', event: { type: 'PLAY' } });
+    expect(opened).toHaveLength(2);
+    expect(rt.engineReleased).toBe(false);
+    await vi.advanceTimersByTimeAsync(300);
+    expect(rt.status()).toMatchObject({ state: 'playing', cursor: { sentence: at } });
+    // Playing keeps the engine.
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(resets).toBe(1);
+    rt.dispose();
+  });
+});

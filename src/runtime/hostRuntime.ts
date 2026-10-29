@@ -18,6 +18,9 @@ import type {
 } from './protocol';
 
 export const STATS_MS = 1000;
+/** An engine worker idle this long is released (≈ 1 GB for Kokoro on WebGPU, ADR 0017). */
+export const IDLE_RELEASE_MS = 5 * 60_000;
+const ACTIVE_STATES = new Set(['preparing', 'buffering', 'playing', 'seeking', 'retrying']);
 
 export interface HostRuntimeDeps {
   kind: HostKind;
@@ -32,6 +35,8 @@ export interface HostRuntimeDeps {
   /** Drops the current engine so the next engineFor() starts a fresh worker. */
   resetEngine?(): void;
   now?(): number;
+  /** Override IDLE_RELEASE_MS (tests). */
+  idleReleaseMs?: number;
 }
 
 export class HostRuntime {
@@ -42,6 +47,9 @@ export class HostRuntime {
   private doc: ReadingDocument | undefined;
   private statsTimer: ReturnType<typeof setInterval> | undefined;
   private counts = { fallbacks: 0, engineRestarts: 0 };
+  private idleTimer: ReturnType<typeof setTimeout> | undefined;
+  /** The engine was released while idle: the next player command reloads it first. */
+  private released = false;
 
   constructor(private readonly deps: HostRuntimeDeps) {
     this.activeBackend = deps.backend;
@@ -91,7 +99,9 @@ export class HostRuntime {
         await this.load(cmd);
         break;
       case 'PLAYER':
-        if (cmd.sessionId === this.sessionId) this.player?.send(cmd.event);
+        if (cmd.sessionId !== this.sessionId) break;
+        if (this.released) await this.reacquire();
+        this.player?.send(cmd.event);
         break;
       case 'UNLOAD':
         if (cmd.sessionId === this.sessionId) this.unload();
@@ -181,14 +191,55 @@ export class HostRuntime {
       if (!st) return;
       if (st.state === 'error' && st.error !== NOTHING_TO_READ && this.player === player)
         if (this.fallBack(st.error ?? 'Playback failed')) return;
+      if (this.player === player) this.watchIdle(st.state);
       const key = JSON.stringify([st.state, st.cursor, st.rate, st.voice, st.error]);
       if (key === last) return;
       last = key;
       this.deps.emit({ type: 'STATUS', status: st });
     });
+    this.released = false;
     const st = this.status();
     if (st) this.deps.emit({ type: 'STATUS', status: st });
+    if (st) this.watchIdle(st.state);
     if (cmd.autoplay) player.send({ type: 'PLAY' });
+  }
+
+  get engineReleased(): boolean {
+    return this.released;
+  }
+
+  /** Starts the idle countdown when playback stops, cancels it when playback resumes. */
+  private watchIdle(state: string): void {
+    if (ACTIVE_STATES.has(state)) {
+      clearTimeout(this.idleTimer);
+      this.idleTimer = undefined;
+      return;
+    }
+    if (this.idleTimer || this.released) return;
+    this.idleTimer = setTimeout(() => {
+      this.idleTimer = undefined;
+      if (!this.player || ACTIVE_STATES.has(this.player.state)) return;
+      // The player keeps its position; only the worker (model, WASM heap, GPU buffers) goes.
+      this.deps.resetEngine?.();
+      this.released = true;
+    }, this.deps.idleReleaseMs ?? IDLE_RELEASE_MS);
+  }
+
+  /** Reloads a released engine at the player's position, paused, before a command runs. */
+  private async reacquire(): Promise<void> {
+    const p = this.player;
+    const doc = this.doc;
+    const sessionId = this.sessionId;
+    if (!p || !doc || !sessionId) return;
+    const c = p.snapshot.context;
+    await this.load({
+      type: 'LOAD',
+      sessionId,
+      doc,
+      start: { sentence: c.cursor.sentence, word: c.cursor.word },
+      settings: { ...this.lastSettings, rate: c.rate, voice: c.voice, pacing: c.pacing },
+      autoplay: false,
+    });
   }
 
   /**
@@ -315,6 +366,7 @@ export class HostRuntime {
   }
 
   dispose(): void {
+    clearTimeout(this.idleTimer);
     this.unload();
     if (this.statsTimer) clearInterval(this.statsTimer);
     this.statsTimer = undefined;
@@ -328,6 +380,8 @@ export class HostRuntime {
   };
 
   private unload(): void {
+    clearTimeout(this.idleTimer);
+    this.idleTimer = undefined;
     this.player?.dispose();
     this.player = undefined;
     this.sessionId = undefined;

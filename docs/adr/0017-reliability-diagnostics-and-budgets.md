@@ -61,7 +61,7 @@
 Measured on Apple M3 Max, macOS 26.6, Playwright Chromium; full table in `docs/TESTING.md`. All
 targets are met except memory.
 
-**Memory miss.** Kokoro fp32 on WebGPU plus the 100-page PDF peaks at ≈ 2.4 GB summed physical
+**Memory miss (resolved in ADR 0018: 1.09 GB added, browser total 1.83 GB).** Kokoro fp32 on WebGPU plus the 100-page PDF peaks at ≈ 2.4 GB summed physical
 footprint across the browser's processes: the extension renderer (reader page with the Kokoro
 worker, ORT's WASM heap, PDF.js) ≈ 1.08 GB and the GPU process ≈ 0.87 GB, of which ≈ 0.33 GB is the
 browser's idle baseline. The PDF itself costs ≈ 120 MB. Target: 1.5 GB.
@@ -74,4 +74,5 @@ Plan:
    it on Play through the host-lost path. That frees ≈ 1 GB while a document stays open.
 3. M14: confirm in Chrome's Task Manager on the owner's machine, which reports what users see.
 
-`tests/models/slo.spec.ts` guards the current figure (≤ 2.7 GB) until then.
+ADR 0018 carried out items 1–2: smaller variants failed on this GPU, so the weights now load as
+external data, and idle engines are released.

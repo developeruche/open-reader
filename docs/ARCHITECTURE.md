@@ -91,3 +91,4 @@ each session; `HostRuntime` walks it when an engine cannot start or keeps failin
 `STATS` every second. The orchestrator keeps the diagnostics ring log (`src/core/diagnostics/log.ts`)
 and the latest stats per host, served to `src/ui/shells/DiagnosticsSection.tsx` over the UI port.
 `src/ui/shells/StorageSection.tsx` shows real storage use and the audio cache cap. See ADR 0017.
+`src/engines/onnx/externalize.ts` loads WebGPU models with their weights as external data (ADR 0018).

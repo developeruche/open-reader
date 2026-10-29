@@ -22,6 +22,8 @@ export const SettingsSchema = z.object({
   strictOffline: z.boolean().default(true),
   /** Open PDF links in the reader instead of Chrome's viewer (§8.1). */
   interceptPdf: z.boolean().default(false),
+  /** Number PDF blocks in reading order when the reader opens (Diagnostics, §8.3.8). */
+  readingOrderOverlay: z.boolean().default(false),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 

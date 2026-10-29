@@ -5,12 +5,14 @@
 import type { ReadingDocument, ReadingPosition } from '@/core/document/model';
 import type { PlayerEvent } from '@/core/player/machine';
 import { Navigator } from '@/core/document/positions';
+import { DiagLog, type LogEntry } from '@/core/diagnostics/log';
 import { applySkipRules, DEFAULT_SKIP_RULES } from '@/core/text/skip';
 import type {
   ContentUpdate,
   HostCommand,
   HostEvent,
   HostKind,
+  HostStats,
   HostStatus,
   SessionInfo,
   SessionSettings,
@@ -61,8 +63,18 @@ export type DebugEvent =
   | { kind: 'host'; host: HostKind; event: 'connected' | 'disconnected' | 'hello'; at: number }
   | { kind: 'command'; command: string; at: number };
 
+/** What the Diagnostics page shows and copies (no document text, no title or URL). */
+export interface DiagnosticsReport {
+  session: Omit<SessionInfo, 'title' | 'url'> | null;
+  stats: HostStats[];
+  log: LogEntry[];
+  droppedLogEntries: number;
+}
+
 export class Orchestrator {
   session: SessionInfo | null = null;
+  readonly log = new DiagLog();
+  private readonly stats = new Map<HostKind, HostStats>();
   private readonly links = new Map<HostKind, HostLink>();
   private readonly ready = new Set<HostKind>();
   private readonly pending = new Map<HostKind, HostCommand[]>();
@@ -84,8 +96,27 @@ export class Orchestrator {
 
   // ── hosts ───────────────────────────────────────────────────────────────
 
+  diagnostics(): DiagnosticsReport {
+    let session: DiagnosticsReport['session'] = null;
+    if (this.session) {
+      const { title: _t, url: _u, ...rest } = this.session;
+      session = rest;
+    }
+    return {
+      session,
+      stats: [...this.stats.values()],
+      log: this.log.entries(),
+      droppedLogEntries: this.log.droppedCount,
+    };
+  }
+
+  private note(level: LogEntry['level'], source: string, message: string, detail?: string): void {
+    this.log.push({ at: this.deps.now(), level, source, message, ...(detail ? { detail } : {}) });
+  }
+
   hostConnected(kind: HostKind, link: HostLink): void {
     this.links.set(kind, link);
+    this.note('info', kind, 'host connected');
     this.deps.debug?.({ kind: 'host', host: kind, event: 'connected', at: this.deps.now() });
   }
 
@@ -94,6 +125,8 @@ export class Orchestrator {
     this.links.delete(kind);
     this.ready.delete(kind);
     this.lastStatus.delete(kind);
+    this.stats.delete(kind);
+    this.note('warn', kind, 'host disconnected');
     this.deps.debug?.({ kind: 'host', host: kind, event: 'disconnected', at: this.deps.now() });
     if (kind === 'offscreen' && this.session?.host === 'offscreen') {
       // The offscreen document closed (30 s rule, crash) or the port dropped; remember to rebuild.
@@ -140,7 +173,16 @@ export class Orchestrator {
         break;
       }
       case 'NOTICE':
+        this.note(
+          e.notice.kind === 'error' ? 'error' : 'info',
+          kind,
+          e.notice.message,
+          e.notice.detail,
+        );
         this.deps.ui.broadcast({ type: 'NOTICE', notice: e.notice });
+        break;
+      case 'STATS':
+        this.stats.set(kind, e.stats);
         break;
     }
   }
@@ -170,6 +212,13 @@ export class Orchestrator {
   private async onStatus(kind: HostKind, status: HostStatus): Promise<void> {
     const previous = this.lastStatus.get(kind);
     this.lastStatus.set(kind, status);
+    if (status.state !== previous?.state)
+      this.note(
+        status.state === 'error' ? 'error' : 'info',
+        kind,
+        `state ${status.state}${status.engine ? ` (${status.engine}${status.backend ? ` · ${status.backend}` : ''})` : ''}`,
+        status.state === 'error' ? (status.error ?? undefined) : undefined,
+      );
     this.deps.debug?.({ kind: 'status', host: kind, status, at: this.deps.now() });
     // Only one session may be audible: starting one pauses the other host (§4.2).
     if (status.state === 'playing' && previous?.state !== 'playing') {
@@ -232,6 +281,7 @@ export class Orchestrator {
   async command(cmd: UiCommand): Promise<void> {
     await this.restored;
     this.deps.debug?.({ kind: 'command', command: cmd.type, at: this.deps.now() });
+    this.note('info', 'ui', `command ${cmd.type}`);
     if (cmd.type === 'READ_TAB') {
       await this.deps.content.extract(cmd.tabId, cmd.fromSelection ?? false);
       return;

@@ -46,7 +46,13 @@ export interface SegmentContext {
   sayInstead?: string;
 }
 
-export const FAST_START_CHARS = 120;
+/**
+ * Fast start (§5.2.6, ADR 0017): a first sentence longer than FAST_START_MIN is split so its first
+ * part has at most FAST_START_CHARS. Kokoro on WebGPU costs ≈ 200 ms + 6 ms per character, so 60
+ * characters keep warm first audio under 800 ms (the plan's 120 measured 790–850 ms).
+ */
+export const FAST_START_CHARS = 60;
+export const FAST_START_MIN = 70;
 const MIN_PART = 20;
 
 /** Splits [0, len) of `spoken` into parts of at most `max` chars, preferring clause boundaries. */
@@ -123,8 +129,8 @@ export function buildSegments(ctx: SegmentContext): SpokenSegment[] {
 
   const maxChars = ctx.maxChars ?? Infinity;
   let cuts = Number.isFinite(maxChars) ? splitPoints(spoken, maxChars) : [];
-  // Fast start: split a long first sentence at its first clause boundary (§5.2.6).
-  if (ctx.fastStart && spoken.length > FAST_START_CHARS) {
+  // Fast start: split a long first sentence, at a clause boundary when there is one early enough.
+  if (ctx.fastStart && spoken.length > FAST_START_MIN) {
     const first = clauseBoundaries(spoken).find(
       (c) => c >= MIN_PART && c <= Math.min(maxChars, FAST_START_CHARS),
     );

@@ -8,17 +8,17 @@ import {
   Dialog,
   EmptyState,
   Kbd,
-  Progress,
   Select,
   Skeleton,
   SkipLink,
   Slider,
   Toggle,
-  toast,
 } from '../components';
 import { cn } from '../cn';
 import { formatRate } from '../format';
 import { VoicesSection } from '../models/VoicesSection';
+import { DiagnosticsSection } from './DiagnosticsSection';
+import { StorageSection } from './StorageSection';
 import type { useAppearanceHook } from './types';
 
 type SectionId =
@@ -248,61 +248,6 @@ function Shortcuts() {
   );
 }
 
-function Storage() {
-  return (
-    <Section title="Storage" intro="Models and documents live in this browser profile.">
-      <div className="flex items-baseline justify-between text-sm">
-        <span>Used</span>
-        <span className="tabular">512 MB of 262 GB</span>
-      </div>
-      <Progress className="mt-2" label="Storage used" value={0.002} />
-      <dl className="mt-6 divide-y divide-line border-y border-line text-sm">
-        {[
-          ['Models', '440 MB'],
-          ['Audio cache', '68 MB of 512 MB'],
-          ['Documents', '4 MB'],
-          ['Persistent storage', 'Granted'],
-        ].map(([k, v]) => (
-          <div key={k} className="flex justify-between py-3">
-            <dt>{k}</dt>
-            <dd className="text-ink-2 tabular">{v}</dd>
-          </div>
-        ))}
-      </dl>
-      <Button
-        className="mt-6"
-        onClick={() => toast({ kind: 'success', title: 'Audio cache cleared' })}
-      >
-        Clear audio cache
-      </Button>
-    </Section>
-  );
-}
-
-function Diagnostics() {
-  return (
-    <Section title="Diagnostics" intro="Live engine stats and a log without any document text.">
-      <dl className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm sm:grid-cols-3">
-        {[
-          ['Backend', 'WebGPU'],
-          ['Real-time factor', '0.11'],
-          ['Buffer ahead', '24 s'],
-          ['Cache hit rate', '38%'],
-          ['Errors', 'None'],
-        ].map(([k, v]) => (
-          <div key={k}>
-            <dt className="text-[13px] text-muted">{k}</dt>
-            <dd className="mt-0.5 text-lg tabular">{v}</dd>
-          </div>
-        ))}
-      </dl>
-      <Button className="mt-8" onClick={() => toast({ kind: 'info', title: 'Diagnostics copied' })}>
-        Copy diagnostics
-      </Button>
-    </Section>
-  );
-}
-
 function About() {
   return (
     <Section title="About & licenses" intro="Open Reader is for research and personal use.">
@@ -320,8 +265,8 @@ const VIEWS: Record<SectionId, () => ReactNode> = {
   pronunciations: Pronunciations,
   online: Online,
   shortcuts: Shortcuts,
-  storage: Storage,
-  diagnostics: Diagnostics,
+  storage: StorageSection,
+  diagnostics: DiagnosticsSection,
   about: About,
 };
 

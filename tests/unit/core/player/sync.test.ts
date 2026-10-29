@@ -29,8 +29,10 @@ describe('ClockFollower', () => {
     c.apply(started(1000));
     expect(c.mediaTime(1000)).toBe(0);
     expect(c.mediaTime(2200)).toBeCloseTo(1.2);
-    expect(c.wordIndex(2200)).toBe(2);
     expect(c.wordIndex(900)).toBe(0);
+    expect(c.wordIndex(2200)).toBe(2);
+    // A clock correction backwards holds the word rather than stepping back.
+    expect(c.wordIndex(1600)).toBe(2);
     expect(new ClockFollower().wordIndex(0)).toBe(-1);
   });
 
@@ -93,5 +95,41 @@ describe('ClockFollower', () => {
       maxErr = Math.max(maxErr, Math.abs(follower.mediaTime(wall) - media));
     }
     expect(maxErr * 1000).toBeLessThan(50);
+  });
+});
+
+describe('ClockFollower drift tracking (§9.1)', () => {
+  it('measures steady-state drift apart from the start-up settle correction', () => {
+    const c = new ClockFollower();
+    c.apply(started(1000));
+    // Chrome's clock settles ~65 ms late right after start: a settle correction absorbs it.
+    c.apply({ type: 'DRIFT', sessionId: S, mediaTime: 0.235, atEpochMs: 1300, settle: true });
+    expect(c.maxSettleMs).toBeCloseTo(65, 5);
+    expect(c.maxDriftMs).toBe(0);
+    // Later periodic corrections are small.
+    c.apply({ type: 'DRIFT', sessionId: S, mediaTime: 1.937, atEpochMs: 3000 });
+    expect(c.maxDriftMs).toBeCloseTo(2, 5);
+    expect(c.driftSamples).toBe(1);
+    expect(c.drifts).toHaveLength(1);
+    // Other sessions and paused clocks are not compared.
+    c.apply({ type: 'DRIFT', sessionId: 'other', mediaTime: 9, atEpochMs: 3100 });
+    c.apply({ type: 'PAUSED', sessionId: S, mediaTime: 2 });
+    c.apply({ type: 'DRIFT', sessionId: S, mediaTime: 5, atEpochMs: 3200 });
+    expect(c.driftSamples).toBe(1);
+  });
+});
+
+describe('ClockFollower between segments', () => {
+  it('ignores clock corrections after a segment ended until the next one starts', () => {
+    const c = new ClockFollower();
+    c.apply(started(1000));
+    c.apply({ type: 'SEGMENT_ENDED', sessionId: S, segmentId: 'p.0#0' });
+    const held = c.mediaTime(Date.now());
+    // The next segment's clock (≈ 0) must not rewind the previous segment's words.
+    c.apply({ type: 'DRIFT', sessionId: S, mediaTime: 0.01, atEpochMs: 5000 });
+    expect(c.mediaTime(Date.now())).toBe(held);
+    c.apply(started(6000));
+    c.apply({ type: 'DRIFT', sessionId: S, mediaTime: 1, atEpochMs: 7000 });
+    expect(c.mediaTime(7000)).toBeCloseTo(1, 5);
   });
 });

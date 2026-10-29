@@ -30,6 +30,10 @@ export default defineContentScript({
             ? 'dark'
             : 'light';
         document.documentElement.dataset.orFollow = app.follow.suspended ? 'suspended' : 'on';
+        document.documentElement.dataset.orDrift = `${app.follower.maxDriftMs.toFixed(1)}/${app.follower.driftSamples}/${app.follower.maxSettleMs.toFixed(1)}`;
+        document.documentElement.dataset.orDrifts = app.follower.drifts
+          .map((d) => d.toFixed(1))
+          .join(',');
       }, 50);
     }
   },

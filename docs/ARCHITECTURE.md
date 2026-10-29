@@ -83,3 +83,11 @@ headers/footers, columns, captions, references), `viewer.ts` (`PdfView` over PDF
 in-page host, the player, painting, follow-scroll and click-to-read. The UI is
 `src/ui/shells/LiveReader.tsx` on `reader.html`. PDFs are stored by `src/platform/documents.ts`;
 `src/platform/pdfIntercept.ts` manages the optional redirect rule. See ADR 0016.
+
+## Reliability and diagnostics (M10)
+
+`src/core/tts/fallback.ts` builds the engine fallback ladder that `sessionSettingsFrom` attaches to
+each session; `HostRuntime` walks it when an engine cannot start or keeps failing and reports
+`STATS` every second. The orchestrator keeps the diagnostics ring log (`src/core/diagnostics/log.ts`)
+and the latest stats per host, served to `src/ui/shells/DiagnosticsSection.tsx` over the UI port.
+`src/ui/shells/StorageSection.tsx` shows real storage use and the audio cache cap. See ADR 0017.

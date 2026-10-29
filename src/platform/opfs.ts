@@ -23,6 +23,11 @@ async function fileHandle(path: string, create = false): Promise<FileSystemFileH
   }
 }
 
+/** `FileSystemDirectoryHandle.values()` is missing from TypeScript's DOM lib. */
+interface AsyncDirectory {
+  values(): AsyncIterable<FileSystemHandle>;
+}
+
 export class OpfsStore implements FileStore {
   async partialSize(path: string): Promise<number> {
     return (await (await fileHandle(path + PART))?.getFile())?.size ?? 0;
@@ -77,6 +82,20 @@ export class OpfsStore implements FileStore {
       await dir.removeEntry(name);
     } catch {
       // already gone
+    }
+  }
+
+  /** Total bytes of the files directly inside `prefix`. */
+  async dirSize(prefix: string): Promise<number> {
+    try {
+      const { dir, name } = await dirFor(prefix, false);
+      const sub = await dir.getDirectoryHandle(name);
+      let total = 0;
+      for await (const h of (sub as unknown as AsyncDirectory).values())
+        if (h.kind === 'file') total += (await (h as FileSystemFileHandle).getFile()).size;
+      return total;
+    } catch {
+      return 0;
     }
   }
 

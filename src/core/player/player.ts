@@ -11,6 +11,7 @@ import { floatToInt16, int16ToFloat } from '../audio/wav';
 import type { BlockType, ReadingDocument, ReadingPosition } from '../document/model';
 import { Navigator, type SentenceRef } from '../document/positions';
 import { Lexicon } from '../text/lexicon';
+import { RtfMonitor } from '../models/benchmark';
 import { NORMALIZER_VERSION } from '../text/normalize';
 import type { PacingPreset } from '../text/pacing';
 import { buildSegments, type SpokenSegment } from '../text/segments';
@@ -41,7 +42,26 @@ export interface PlayerSettings {
 export interface PlayerNotice {
   kind: 'info' | 'error';
   message: string;
+  /** Technical detail shown under the message (e.g. the error behind an engine switch). */
+  detail?: string;
 }
+
+/** Live numbers for Diagnostics (§9.2). */
+export interface PlayerStats {
+  /** Mean real-time factor of the last few synthesized segments (null before the first). */
+  rtf: number | null;
+  synthesized: number;
+  cacheHits: number;
+  /** Seconds of ready speech ahead of the playhead, at 1× (what the 20 s prefetch target counts). */
+  bufferAhead: number;
+  stalls: number;
+  errors: number;
+}
+
+export const NOTHING_TO_READ = 'Nothing to read here';
+export const SLOW_VOICE_NOTICE =
+  'This voice is slower than real time on this device, so playback may pause. A faster voice such as Piper keeps up: choose it in Settings → Voices & models.';
+const RTF_SAMPLES = 8;
 
 export interface PlayerDeps {
   doc: ReadingDocument;
@@ -80,6 +100,8 @@ const SECONDS_PER_CHAR = 0.07;
 export const WATCHDOG_MS = 500;
 export const STALL_MS = 2000;
 export const DRIFT_MS = 2000;
+/** One extra correction shortly after each segment starts, while the media clock settles. */
+export const EARLY_DRIFT_MS = 300;
 export const STALLS_BEFORE_RESTART = 3;
 /** Planning estimate for system voices at rate 1 (re-anchored by word events while speaking). */
 const LIVE_SECONDS_PER_CHAR = 0.065;
@@ -105,8 +127,15 @@ export class Player {
   private lastProgressAt = 0;
   private stalls = 0;
   private lastDriftAt = 0;
+  private earlyDrift: ReturnType<typeof setTimeout> | undefined;
+  /** The segment whose SEGMENT_STARTED went out: clock corrections only apply to it. */
+  private announced: PreparedSegment | undefined;
   private readonly unsubscribeBackend: () => void;
   private readonly now: () => number;
+  private readonly rtfMonitor = new RtfMonitor();
+  private readonly rtfs: number[] = [];
+  private slowNoticeShown = false;
+  private readonly counters = { synthesized: 0, cacheHits: 0, stalls: 0, errors: 0 };
 
   constructor(private readonly deps: PlayerDeps) {
     this.now = deps.now ?? Date.now;
@@ -125,6 +154,10 @@ export class Player {
       (key, signal) => this.prepare(key, signal),
       deps.concurrency ?? 1,
     );
+    // Real durations replace estimates as segments arrive: extend the window to keep 20 s ahead.
+    this.scheduler.onReady = () => {
+      if (this.state === 'playing') this.scheduler.want(this.window(this.cursor));
+    };
 
     const nav: PlayerNav = {
       next: (c) => this.nextCursor(c),
@@ -202,6 +235,20 @@ export class Player {
     return this.current;
   }
 
+  stats(): PlayerStats {
+    const rtf = this.rtfs.length ? this.rtfs.reduce((a, b) => a + b, 0) / this.rtfs.length : null;
+    let ahead = 0;
+    let c: Cursor | undefined = this.cursor;
+    for (let i = 0; c && i < MAX_WINDOW; i++, c = this.nextCursor(c)) {
+      const p = this.scheduler.peek(this.keyOf(c));
+      if (!p) break;
+      ahead += p.audio.duration * p.modelSpeed;
+    }
+    const cur = this.current;
+    if (cur) ahead -= this.deps.backend.mediaTime() * cur.modelSpeed;
+    return { rtf, ...this.counters, bufferAhead: Math.max(0, ahead) };
+  }
+
   setSkipRules(rules: SkipRules, lexicon?: Lexicon): void {
     this.settings.skipRules = rules;
     if (lexicon) this.lexicon = lexicon;
@@ -209,6 +256,7 @@ export class Player {
   }
 
   dispose(): void {
+    clearTimeout(this.earlyDrift);
     this.stopWatchdog();
     this.scheduler.reset();
     this.unsubscribeBackend();
@@ -303,12 +351,14 @@ export class Player {
     };
   }
 
-  /** Wanted set: from the cursor until ≥ 20 s and ≥ 4 segments are covered. */
+  /**
+   * Wanted set: the cursor's segment, then segments until ≥ 20 s of speech after it and ≥ 4
+   * segments are covered. Prepared segments count their real duration; others are estimated.
+   */
   private window(from: Cursor): Wanted[] {
     const out: Wanted[] = [];
     let seconds = 0;
     let c: Cursor | undefined = from;
-    const speed = modelSpeedFor(this.settings.rate);
     while (
       c &&
       out.length < MAX_WINDOW &&
@@ -316,8 +366,14 @@ export class Player {
     ) {
       const seg = this.segmentsFor(c.sentence)[c.part];
       if (!seg) break;
-      out.push({ key: this.keyOf(c), distance: out.length });
-      seconds += (seg.spoken.length * SECONDS_PER_CHAR) / speed + seg.pauseAfter;
+      const key = this.keyOf(c);
+      if (out.length) {
+        const ready = this.scheduler.peek(key);
+        seconds += ready
+          ? ready.audio.duration * ready.modelSpeed
+          : seg.spoken.length * SECONDS_PER_CHAR + seg.pauseAfter;
+      }
+      out.push({ key, distance: out.length });
       c = this.nextCursor(c);
     }
     return out;
@@ -346,11 +402,14 @@ export class Player {
     if (hit) {
       result = { pcm: int16ToFloat(hit.pcm), sampleRate: hit.sampleRate, words: hit.words };
       fromCache = true;
+      this.counters.cacheHits++;
     } else {
+      const t0 = this.now();
       result = await engine.synthesize(
         { text: segment.spoken, voiceId: voice, speed: modelSpeed, lang: this.deps.doc.lang },
         signal,
       );
+      this.sampleRtf((this.now() - t0) / 1000, result.pcm.length / result.sampleRate);
       void this.deps.cache?.put(ck, {
         pcm: floatToInt16(result.pcm),
         sampleRate: result.sampleRate,
@@ -362,6 +421,19 @@ export class Player {
       pauseAfter: segment.pauseAfter / modelSpeed,
     });
     return { segment, audio, sync: this.syncWords(segment, audio.words), modelSpeed, fromCache };
+  }
+
+  /** Rolling RTF for Diagnostics, and the "voice is too slow" suggestion (§6.4.4). */
+  private sampleRtf(seconds: number, audioSeconds: number): void {
+    this.counters.synthesized++;
+    if (audioSeconds <= 0) return;
+    const rtf = seconds / audioSeconds;
+    this.rtfs.push(rtf);
+    if (this.rtfs.length > RTF_SAMPLES) this.rtfs.shift();
+    if (this.rtfMonitor.sample(rtf, this.now()) && !this.slowNoticeShown) {
+      this.slowNoticeShown = true;
+      this.deps.onNotice?.({ kind: 'info', message: SLOW_VOICE_NOTICE });
+    }
   }
 
   /** Live engines speak by themselves: plan estimated timings for the clock and highlights. */
@@ -430,7 +502,7 @@ export class Player {
       queueMicrotask(
         () =>
           token === this.requestToken &&
-          this.actor.send({ type: 'SEGMENT_FAILED', message: 'Nothing to read here' }),
+          this.actor.send({ type: 'SEGMENT_FAILED', message: NOTHING_TO_READ }),
       );
       return;
     }
@@ -448,6 +520,7 @@ export class Player {
       () => token === this.requestToken && this.actor.send({ type: 'SEGMENT_READY' }),
       (e: unknown) => {
         if (token !== this.requestToken || isAbort(e)) return;
+        this.counters.errors++;
         this.actor.send({
           type: 'SEGMENT_FAILED',
           message: e instanceof Error ? e.message : String(e),
@@ -538,6 +611,7 @@ export class Player {
     switch (e.type) {
       case 'started': {
         if (!cur) return;
+        this.announced = cur;
         const ref: SentenceRef | undefined = this.nav.at(this.cursor.sentence);
         const rate = this.playbackRate();
         this.emit({
@@ -551,6 +625,18 @@ export class Player {
           mediaStartEpochMs: anchorFor(e.mediaTime, e.epochMs, rate),
           rate,
         });
+        clearTimeout(this.earlyDrift);
+        this.earlyDrift = setTimeout(() => {
+          if (this.current !== cur || this.state !== 'playing') return;
+          this.lastDriftAt = this.now();
+          this.emit({
+            type: 'DRIFT',
+            sessionId: this.deps.sessionId,
+            mediaTime: this.deps.backend.mediaTime(),
+            atEpochMs: this.now(),
+            settle: true,
+          });
+        }, EARLY_DRIFT_MS);
         break;
       }
       case 'ended':
@@ -565,6 +651,7 @@ export class Player {
         this.actor.send({ type: 'AUDIO_ENDED' });
         break;
       case 'progress':
+        if (!cur || this.announced !== cur) break;
         this.emit({
           type: 'DRIFT',
           sessionId: this.deps.sessionId,
@@ -573,6 +660,7 @@ export class Player {
         });
         break;
       case 'error':
+        this.counters.errors++;
         this.deps.onNotice?.({ kind: 'error', message: `Audio error: ${e.message}` });
         this.actor.send({ type: 'AUDIO_STALLED' });
         break;
@@ -600,6 +688,7 @@ export class Player {
       this.lastProgressAt = now;
     } else if (now - this.lastProgressAt >= STALL_MS) {
       this.stalls++;
+      this.counters.stalls++;
       this.lastProgressAt = now;
       if (this.stalls >= STALLS_BEFORE_RESTART) {
         this.stalls = 0;
@@ -613,7 +702,7 @@ export class Player {
       this.actor.send({ type: 'AUDIO_STALLED' });
       return;
     }
-    if (now - this.lastDriftAt >= DRIFT_MS) {
+    if (now - this.lastDriftAt >= DRIFT_MS && this.current && this.announced === this.current) {
       this.lastDriftAt = now;
       this.emit({ type: 'DRIFT', sessionId: this.deps.sessionId, mediaTime: t, atEpochMs: now });
     }

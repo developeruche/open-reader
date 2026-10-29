@@ -13,11 +13,16 @@ interface Deck {
   url?: string;
 }
 
+/** How often to look for the media clock to start moving after `playing`, and for how long. */
+export const START_POLL_MS = 4;
+export const START_POLL_LIMIT_MS = 250;
+
 export class RenderedBackend implements PlaybackBackend {
   private readonly decks: [Deck, Deck];
   private active = 0;
   private rate = 1;
   private readonly listeners = new Set<(e: BackendEvent) => void>();
+  private startToken = 0;
 
   constructor(
     createAudio: () => HTMLAudioElement = () => new Audio(),
@@ -27,12 +32,7 @@ export class RenderedBackend implements PlaybackBackend {
     for (const [i, d] of this.decks.entries()) {
       d.el.preservesPitch = true;
       d.el.preload = 'auto';
-      d.el.addEventListener(
-        'playing',
-        () =>
-          i === this.active &&
-          this.emit({ type: 'started', mediaTime: d.el.currentTime, epochMs: this.now() }),
-      );
+      d.el.addEventListener('playing', () => i === this.active && this.announceStart(d.el));
       d.el.addEventListener('ended', () => i === this.active && this.emit({ type: 'ended' }));
       d.el.addEventListener(
         'error',
@@ -74,7 +74,27 @@ export class RenderedBackend implements PlaybackBackend {
   }
 
   pause(): void {
+    this.startToken++;
     this.decks[this.active]?.el.pause();
+  }
+
+  /**
+   * `playing` fires before Chrome's media clock moves (~50 ms of output latency), so anchoring
+   * there runs the highlight ahead. Wait for currentTime to advance, then report the real clock.
+   */
+  private announceStart(el: HTMLAudioElement): void {
+    const token = ++this.startToken;
+    const from = el.currentTime;
+    let tries = Math.ceil(START_POLL_LIMIT_MS / START_POLL_MS);
+    const check = () => {
+      if (token !== this.startToken || el.paused) return;
+      if (el.currentTime === from && tries-- > 0) {
+        setTimeout(check, START_POLL_MS);
+        return;
+      }
+      this.emit({ type: 'started', mediaTime: el.currentTime, epochMs: this.now() });
+    };
+    check();
   }
 
   resume(): void {
@@ -89,6 +109,7 @@ export class RenderedBackend implements PlaybackBackend {
   }
 
   stop(): void {
+    this.startToken++;
     for (const d of this.decks) {
       d.el.pause();
       this.unload(d);

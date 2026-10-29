@@ -5,10 +5,12 @@
 import { z } from 'zod';
 import type { ReadingDocument, ReadingPosition } from '@/core/document/model';
 import type { Cursor, PlayerEvent, PlayerStateValue } from '@/core/player/machine';
-import type { PlayerNotice } from '@/core/player/player';
+import type { PlayerNotice, PlayerStats } from '@/core/player/player';
 import type { SyncEvent } from '@/core/player/sync';
 import type { PacingPreset } from '@/core/text/pacing';
 import type { SkipRules } from '@/core/text/skip';
+import type { EngineChoice } from '@/core/tts/fallback';
+import type { DiagnosticsReport } from './orchestrator';
 import type { TtsEvent, TtsSpeakOptions } from '@/engines/system/tts';
 
 export const PORT = {
@@ -29,6 +31,10 @@ export interface SessionSettings {
   modelId?: string;
   backend?: 'webgpu' | 'wasm';
   skipRules?: SkipRules;
+  /** Audio cache cap from settings. */
+  cacheCapBytes?: number;
+  /** Engines to try, in order, when this one fails (§9.2). */
+  fallbacks?: EngineChoice[];
 }
 
 export const DEFAULT_SESSION_SETTINGS: SessionSettings = {
@@ -56,6 +62,19 @@ export interface SessionInfo {
   updatedAt: number;
   engine?: string;
   backend?: string;
+}
+
+/** Diagnostics numbers a host reports every second while a session is loaded (§9.2). */
+export interface HostStats extends PlayerStats {
+  sessionId: string;
+  host: HostKind;
+  engine: string;
+  backend: string;
+  state: PlayerStateValue;
+  /** Engine switches down the fallback ladder in this session. */
+  fallbacks: number;
+  engineRestarts: number;
+  at: number;
 }
 
 // ── background → engine host ───────────────────────────────────────────────
@@ -95,6 +114,7 @@ export type HostEvent =
   | { type: 'SYNC'; event: SyncEvent }
   | { type: 'POSITION'; position: ReadingPosition }
   | { type: 'NOTICE'; sessionId: string; notice: PlayerNotice }
+  | { type: 'STATS'; stats: HostStats }
   /** The offscreen host asks the background to drive chrome.tts. */
   | { type: 'TTS'; op: 'speak'; id: number; text: string; options: TtsSpeakOptions }
   | { type: 'TTS'; op: 'pause' | 'resume' | 'stop' };
@@ -144,14 +164,19 @@ export function parseUiCommand(raw: unknown): UiCommand | undefined {
   return r.success ? r.data : undefined;
 }
 
-export type UiMessage = { type: 'HELLO'; tabId?: number } | { type: 'COMMAND'; command: UiCommand };
+export type UiMessage =
+  | { type: 'HELLO'; tabId?: number }
+  | { type: 'COMMAND'; command: UiCommand }
+  /** Diagnostics page: asks for a DIAGNOSTICS update. */
+  | { type: 'DIAGNOSTICS' };
 
 export type UiUpdate =
   | { type: 'SESSION'; session: SessionInfo | null }
   /** The document being read (reader view and outline). */
   | { type: 'DOC'; doc: ReadingDocument }
   | { type: 'SYNC'; event: SyncEvent }
-  | { type: 'NOTICE'; notice: PlayerNotice };
+  | { type: 'NOTICE'; notice: PlayerNotice }
+  | { type: 'DIAGNOSTICS'; report: DiagnosticsReport };
 
 // ── content script ↔ background ────────────────────────────────────────────
 export type ContentMessage =

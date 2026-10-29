@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildBlock } from '@/core/document/build';
 import type { ReadingDocument, ReadingPosition } from '@/core/document/model';
 import { MemoryCache } from '@/core/player/cache';
-import { modelSpeedFor, Player, type PlayerNotice } from '@/core/player/player';
+import { modelSpeedFor, Player, SLOW_VOICE_NOTICE, type PlayerNotice } from '@/core/player/player';
 import type { SyncEvent } from '@/core/player/sync';
 import { TestEngine, type TestEngineFaults } from '@/engines/test/engine';
 import { FakeBackend } from '../../helpers/fakeBackend';
@@ -279,6 +279,35 @@ describe('Player (TestEngine + fake backend)', () => {
     expect(b.engine.calls).toBe(0);
     expect(first).toBeGreaterThan(0);
     expect(cache.stats.hits).toBeGreaterThanOrEqual(first);
+  });
+
+  it('reports live stats: RTF, cache hits, buffer ahead, stalls and errors', async () => {
+    const cache = new MemoryCache();
+    const h = setup({ delayMs: 100, failCalls: [0] }, { cache });
+    expect(h.player.stats()).toMatchObject({ rtf: null, synthesized: 0, bufferAhead: 0 });
+    h.player.send({ type: 'PLAY' });
+    await advance(3000);
+    const s = h.player.stats();
+    expect(s.synthesized).toBeGreaterThan(2);
+    expect(s.rtf).toBeGreaterThan(0);
+    expect(s.rtf).toBeLessThan(0.5);
+    expect(s.errors).toBe(1);
+    expect(s.bufferAhead).toBeGreaterThan(2);
+    await advance(60_000);
+    h.player.dispose();
+    const again = setup({}, { cache });
+    again.player.send({ type: 'PLAY' });
+    await advance(2000);
+    expect(again.player.stats().cacheHits).toBeGreaterThan(0);
+    expect(again.player.stats().synthesized).toBe(0);
+  });
+
+  it('suggests a faster voice once when synthesis stays slower than real time for 30 s', async () => {
+    const h = setup({ delayMs: 6000 });
+    h.player.send({ type: 'PLAY' });
+    await advance(120_000);
+    expect(h.notices.filter((n) => n.message === SLOW_VOICE_NOTICE)).toHaveLength(1);
+    expect(h.player.stats().rtf).toBeGreaterThan(0.9);
   });
 
   it('starts from a saved position and recovers after the host is lost', async () => {

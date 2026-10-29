@@ -24,6 +24,14 @@ export async function loadPdf(id: string): Promise<Uint8Array | undefined> {
   }
 }
 
+export function documentsSize(): Promise<number> {
+  return store.dirSize('documents');
+}
+
+export function clearDocuments(): Promise<void> {
+  return store.removeDir('documents');
+}
+
 /** file:// PDFs need "Allow access to file URLs" (§8.1). */
 export async function fileAccessAllowed(): Promise<boolean> {
   return browser.extension.isAllowedFileSchemeAccess();

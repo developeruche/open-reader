@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatRate, formatTimeLeft } from '@/ui/format';
+import { formatBytes, formatRate, formatTimeLeft } from '@/ui/format';
 
 describe('formatRate', () => {
   it.each([
@@ -21,4 +21,15 @@ describe('formatTimeLeft', () => {
     [65 * 60, '1 h 5 min left'],
     [-3, '0 s left'],
   ])('%s s → %s', (s, text) => expect(formatTimeLeft(s)).toBe(text));
+});
+
+describe('formatBytes', () => {
+  it.each([
+    [0, '0 B'],
+    [999, '999 B'],
+    [1500, '1.5 KB'],
+    [68e6, '68 MB'],
+    [123.4e6, '123 MB'],
+    [262e9, '262 GB'],
+  ])('%d → %s', (b, s) => expect(formatBytes(b)).toBe(s.replace(' ', '\u00a0')));
 });

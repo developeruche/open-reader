@@ -2,7 +2,9 @@ import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
   downloadFile,
+  downloadWithRetry,
   HttpError,
+  isTransient,
   IntegrityError,
   type Fetcher,
   type ModelFile,
@@ -63,6 +65,69 @@ const fileOf = (data: Uint8Array): ModelFile => ({
   url: 'https://hf.test/model.onnx',
   sha256: sha(data),
   bytes: data.length,
+});
+
+describe('downloadWithRetry', () => {
+  it('retries transient failures with backoff and resumes from what arrived', async () => {
+    const data = bytes(5000);
+    let call = 0;
+    const flaky = server(data, { failAfter: 2000 });
+    const good = server(data);
+    const fetch: Fetcher = (url, init) =>
+      call++ === 0 ? flaky.fetch(url, init) : good.fetch(url, init);
+    const store = new MemoryFileStore();
+    const waits: number[] = [];
+    await downloadWithRetry(
+      fileOf(data),
+      'm/f',
+      { store, fetch, hash },
+      { baseMs: 100, sleep: async (ms) => void waits.push(ms) },
+    );
+    expect(waits).toEqual([100]);
+    expect(good.calls[0]?.range).toBe('bytes=2000-');
+    expect(await store.size('m/f')).toBe(5000);
+  });
+
+  it('gives up after the last attempt and never retries permanent errors', async () => {
+    const data = bytes(100);
+    const waits: number[] = [];
+    const sleep = async (ms: number) => void waits.push(ms);
+    await expect(
+      downloadWithRetry(
+        fileOf(data),
+        'm/a',
+        { store: new MemoryFileStore(), fetch: server(data, { status: 503 }).fetch, hash },
+        { attempts: 3, baseMs: 10, sleep },
+      ),
+    ).rejects.toBeInstanceOf(HttpError);
+    expect(waits).toEqual([10, 20]);
+    waits.length = 0;
+    await expect(
+      downloadWithRetry(
+        fileOf(data),
+        'm/b',
+        { store: new MemoryFileStore(), fetch: server(data, { status: 404 }).fetch, hash },
+        { sleep },
+      ),
+    ).rejects.toBeInstanceOf(HttpError);
+    await expect(
+      downloadWithRetry(
+        fileOf(data),
+        'm/c',
+        { store: new MemoryFileStore(), fetch: server(data, { corruptAt: 3 }).fetch, hash },
+        { sleep },
+      ),
+    ).rejects.toBeInstanceOf(IntegrityError);
+    expect(waits).toEqual([]);
+  });
+
+  it('classifies errors', () => {
+    expect(isTransient(new TypeError('network'))).toBe(true);
+    expect(isTransient(new HttpError(429, 'u'))).toBe(true);
+    expect(isTransient(new HttpError(403, 'u'))).toBe(false);
+    expect(isTransient(Object.assign(new Error('x'), { name: 'AbortError' }))).toBe(false);
+    expect(isTransient('nope')).toBe(false);
+  });
 });
 
 describe('downloadFile', () => {

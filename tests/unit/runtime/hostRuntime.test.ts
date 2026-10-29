@@ -126,3 +126,147 @@ describe('HostRuntime engine failures', () => {
     expect(st?.type === 'STATUS' && st.status.error).toMatch(/Voices & models/);
   });
 });
+
+describe('HostRuntime fallback ladder (§9.2)', () => {
+  beforeEach(() =>
+    vi.useFakeTimers({
+      toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
+    }),
+  );
+  afterEach(() => vi.useRealTimers());
+
+  const settings = {
+    ...DEFAULT_SESSION_SETTINGS,
+    engineId: 'kokoro',
+    modelId: 'kokoro-82m',
+    voice: 'af_heart',
+    cacheCapBytes: 1024,
+    fallbacks: [
+      { engineId: 'kokoro', modelId: 'kokoro-82m', backend: 'wasm' as const },
+      { engineId: 'piper', modelId: 'piper-x', voice: 'x' },
+    ],
+  };
+  const notices = (events: HostEvent[]) =>
+    events.flatMap((e) => (e.type === 'NOTICE' ? [e.notice] : []));
+
+  it('retries the same engine once, then walks the rungs and announces the switch', async () => {
+    const events: HostEvent[] = [];
+    const tried: string[] = [];
+    let resets = 0;
+    const setCap = vi.fn(async () => undefined);
+    const rt = new HostRuntime({
+      kind: 'offscreen',
+      backend: new FakeBackend(),
+      cache: {
+        get: async () => undefined,
+        put: async () => undefined,
+        size: async () => 0,
+        clear: async () => undefined,
+        setCap,
+        stats: { hits: 0, misses: 0 },
+      },
+      engineFor: async (s) => {
+        tried.push(`${s.engineId}:${s.backend ?? 'auto'}:${s.voice}`);
+        if (s.engineId === 'kokoro') throw new Error(`${s.backend ?? 'webgpu'} adapter lost`);
+        return { engine: new TestEngine(), model: { modelId: 'p', version: '1' } };
+      },
+      emit: (e) => events.push(e),
+      resetEngine: () => void resets++,
+    });
+    await rt.handle({
+      type: 'LOAD',
+      sessionId: 's',
+      doc,
+      start: { sentence: 0, word: 0 },
+      settings,
+      autoplay: true,
+    });
+    expect(setCap).toHaveBeenCalledWith(1024);
+    expect(tried).toEqual([
+      'kokoro:auto:af_heart',
+      'kokoro:auto:af_heart',
+      'kokoro:wasm:af_heart',
+      'piper:auto:x',
+    ]);
+    expect(resets).toBe(1);
+    expect(notices(events)).toEqual([
+      {
+        kind: 'info',
+        message: 'Switched to Piper because Kokoro failed.',
+        detail: 'wasm adapter lost',
+      },
+    ]);
+    await vi.advanceTimersByTimeAsync(1100);
+    const stats = events.findLast((e) => e.type === 'STATS');
+    expect(stats?.type === 'STATS' && stats.stats).toMatchObject({
+      sessionId: 's',
+      host: 'offscreen',
+      fallbacks: 1,
+      engine: 'test',
+    });
+    rt.dispose();
+  });
+
+  it('reports an error when every rung fails', async () => {
+    const events: HostEvent[] = [];
+    const rt = new HostRuntime({
+      kind: 'offscreen',
+      backend: new FakeBackend(),
+      engineFor: async () => {
+        throw new Error('no voice');
+      },
+      emit: (e) => events.push(e),
+    });
+    await rt.handle({
+      type: 'LOAD',
+      sessionId: 's',
+      doc,
+      start: { sentence: 0, word: 0 },
+      settings,
+      autoplay: true,
+    });
+    expect(notices(events)[0]?.message).toMatch(/The voice could not start: no voice/);
+    expect(events.findLast((e) => e.type === 'STATUS')).toMatchObject({
+      status: { state: 'error' },
+    });
+  });
+
+  it('moves down the ladder when synthesis keeps failing during playback', async () => {
+    const events: HostEvent[] = [];
+    const engines: string[] = [];
+    const rt = new HostRuntime({
+      kind: 'offscreen',
+      backend: new FakeBackend(),
+      engineFor: async (s) => {
+        engines.push(s.engineId);
+        const engine =
+          s.engineId === 'kokoro'
+            ? new TestEngine({ failAlways: true, failCalls: [0, 1, 2, 3, 4, 5] })
+            : new TestEngine();
+        return { engine, model: { modelId: s.engineId, version: '1' } };
+      },
+      emit: (e) => events.push(e),
+      resetEngine: () => undefined,
+    });
+    await rt.handle({
+      type: 'LOAD',
+      sessionId: 's',
+      doc,
+      start: { sentence: 1, word: 0 },
+      settings: { ...settings, fallbacks: [{ engineId: 'piper', modelId: 'piper-x', voice: 'x' }] },
+      autoplay: true,
+    });
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(engines).toEqual(['kokoro', 'piper']);
+    expect(notices(events).find((n) => n.message.startsWith('Switched'))).toMatchObject({
+      message: 'Switched to Piper because Kokoro failed.',
+    });
+    // Piper picks up at the sentence that failed and reads on to the end.
+    const started = events.flatMap((e) =>
+      e.type === 'SYNC' && e.event.type === 'SEGMENT_STARTED' ? [e.event.sentenceIndex] : [],
+    );
+    expect(started[0]).toBe(1);
+    expect(rt.status()?.state).toBe('ended');
+    rt.dispose();
+  });
+});

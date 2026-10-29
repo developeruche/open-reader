@@ -26,6 +26,8 @@ export interface SynthesisCache {
   /** Total bytes stored. */
   size(): Promise<number>;
   clear(): Promise<void>;
+  /** Changes the size cap and evicts down to it (least recently used first). */
+  setCap?(bytes: number): Promise<void>;
   readonly stats: { hits: number; misses: number };
 }
 

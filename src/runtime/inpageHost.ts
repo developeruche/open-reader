@@ -42,6 +42,7 @@ export function createInPageHost(onEvent?: (e: HostEvent) => void): InPageHost {
       if (
         !handle ||
         handle.engineId !== settings.engineId ||
+        (settings.modelId && handle.modelId !== settings.modelId) ||
         (settings.backend && handle.backend !== settings.backend)
       ) {
         handle?.terminate();
@@ -55,8 +56,8 @@ export function createInPageHost(onEvent?: (e: HostEvent) => void): InPageHost {
     },
     emit(e) {
       onEvent?.(e);
-      // Only arbitration-relevant events go to the background (the reader saves its own positions).
-      if (e.type === 'HELLO' || e.type === 'STATUS') port.post(e);
+      // Arbitration and diagnostics go to the background (the reader saves its own positions).
+      if (e.type === 'HELLO' || e.type === 'STATUS' || e.type === 'STATS') port.post(e);
     },
   });
   const port = connectWithRetry<HostCommand, HostEvent>({

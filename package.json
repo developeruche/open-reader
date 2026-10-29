@@ -23,12 +23,14 @@
     "spikes:build": "wxt build spikes/extension",
     "spikes:run": "tsx spikes/run.ts",
     "spikes:setup": "tsx spikes/setup.ts",
+    "test:soak": "wxt build --mode test && SOAK_MINUTES=10 playwright test soak",
     "test:models": "wxt build --mode test && playwright test --config playwright.models.config.ts",
     "models:fetch": "tsx scripts/fetch-models.ts",
     "build:offline": "OPEN_READER_OFFLINE=1 wxt build",
     "synth:corpus": "tsx scripts/synth-corpus.ts",
     "quality": "uv run --project quality --python 3.12 python quality/asr_qa.py",
-    "fixtures": "tsx scripts/make-fixtures.ts"
+    "fixtures": "tsx scripts/make-fixtures.ts",
+    "budgets": "tsx scripts/check-budgets.ts"
   },
   "dependencies": {
     "@diffusionstudio/piper-wasm": "1.0.0",

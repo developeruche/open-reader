@@ -76,6 +76,22 @@ describe('buildSegments', () => {
     expect(segs.length).toBe(2);
   });
 
+  it('fast start splits at a word boundary when no clause ends early enough', () => {
+    const long =
+      'A partially signed transaction is a data structure that lets several parties build and sign a transaction together.';
+    const b = para(long);
+    const segs = buildSegments({
+      block: b,
+      sentence: b.sentences[0]!,
+      lastInBlock: true,
+      fastStart: true,
+      maxChars: 400,
+    });
+    expect(segs[0]!.spoken.length).toBeLessThanOrEqual(FAST_START_CHARS);
+    expect(segs[0]!.spoken.length).toBeGreaterThan(FAST_START_CHARS - 15);
+    expect(segs.map((x) => x.spoken).join(' ')).toBe(long);
+  });
+
   it('fast start leaves short sentences alone', () => {
     const b = para('Short sentence.');
     expect(

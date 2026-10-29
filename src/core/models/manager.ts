@@ -1,7 +1,12 @@
 /** Installs, verifies, repairs and removes models (PLAN.md §6.7). */
 import type { KeyValueStore } from '../util/kv';
 import type { Backend, ModelManifest } from '../tts/registry';
-import { downloadFile, type DownloadOptions, type FileStore, type ModelFile } from './downloader';
+import {
+  downloadWithRetry,
+  type DownloadOptions,
+  type FileStore,
+  type ModelFile,
+} from './downloader';
 
 export interface InstalledModel {
   modelId: string;
@@ -73,7 +78,7 @@ export class ModelManager {
       });
     for (const f of files) {
       const dest = filePath(model, f);
-      await downloadFile(f, dest, {
+      await downloadWithRetry(f, dest, {
         store: this.deps.store,
         fetch: this.deps.fetch,
         hash: this.deps.hash,

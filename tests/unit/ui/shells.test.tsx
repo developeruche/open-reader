@@ -46,6 +46,11 @@ vi.mock('@/platform/tabs', () => ({
   tabUrl: async () => 'https://example.com/',
   isPdfUrl: (u: string) => u.endsWith('.pdf'),
 }));
+// Storage and Diagnostics have their own tests (optionsSections.test.tsx).
+vi.mock('@/ui/shells/StorageSection', () => ({ StorageSection: () => <h1>Storage</h1> }));
+vi.mock('@/ui/shells/DiagnosticsSection', () => ({
+  DiagnosticsSection: () => <h1>Diagnostics</h1>,
+}));
 vi.mock('@/platform/settings', () => ({
   saveSettings: vi.fn(async () => (await import('@/core/settings')).DEFAULT_SETTINGS),
   loadSettings: vi.fn(async () => (await import('@/core/settings')).DEFAULT_SETTINGS),
@@ -220,8 +225,6 @@ describe('OptionsApp', () => {
       await userEvent.click(screen.getByRole('link', { name }));
       expect(screen.getByRole('heading', { level: 1, name })).toBeTruthy();
     }
-    await userEvent.click(screen.getByRole('link', { name: 'Storage' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Clear audio cache' }));
     await userEvent.click(screen.getByRole('link', { name: 'Online voices' }));
     await userEvent.click(screen.getByRole('switch', { name: 'Use online voices' }));
     await userEvent.click(await screen.findByRole('button', { name: 'Cancel' }));

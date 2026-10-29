@@ -129,6 +129,13 @@ export function startBackground(): void {
             const cmd = parseUiCommand(msg.command);
             if (cmd) void orch.command(cmd);
           }
+          if (msg.type === 'DIAGNOSTICS')
+            void orch.whenRestored().then(() =>
+              port.postMessage({
+                type: 'DIAGNOSTICS',
+                report: orch.diagnostics(),
+              } satisfies UiUpdate),
+            );
         });
         break;
       }

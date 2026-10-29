@@ -7,6 +7,7 @@ import type { OutlineItem } from '@/pdf/viewer';
 import { ReaderController } from '@/pdf/readerController';
 import { fetchPdf, fileAccessAllowed, loadPdf } from '@/platform/documents';
 import { IdbLibrary } from '@/platform/library';
+import { loadSettings } from '@/platform/settings';
 import type { LibraryRow } from '@/platform/audioCache';
 import { HIGHLIGHT_CSS } from '@/web/highlightCss';
 import {
@@ -58,6 +59,7 @@ export function LiveReader() {
 
   useEffect(() => {
     if (container.current) ctl.attach(container.current);
+    void loadSettings().then((st) => st.readingOrderOverlay && setOverlay(true));
     void new IdbLibrary().recent(20).then((r) => setRecent(r.filter((x) => x.kind === 'pdf')));
     const params = new URLSearchParams(location.search);
     const src = params.get('src');

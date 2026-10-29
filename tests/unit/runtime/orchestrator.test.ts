@@ -291,6 +291,70 @@ describe('Orchestrator', () => {
   });
 });
 
+describe('Orchestrator diagnostics (§9.2)', () => {
+  it('logs host, state, command and notice events and keeps the latest stats per host', async () => {
+    const h = setup();
+    h.connect('offscreen');
+    await h.orch.contentDoc(7, doc, 'https://x.test/a', undefined);
+    await h.orch.hostEvent('offscreen', { type: 'HELLO', host: 'offscreen', status: null });
+    const sid = h.orch.session?.sessionId ?? '';
+    await h.orch.hostEvent('offscreen', {
+      type: 'STATUS',
+      status: { ...h.status(sid, 'playing'), engine: 'kokoro', backend: 'webgpu' },
+    });
+    await h.orch.hostEvent('offscreen', {
+      type: 'STATUS',
+      status: { ...h.status(sid, 'error'), error: 'boom' },
+    });
+    await h.orch.hostEvent('offscreen', {
+      type: 'NOTICE',
+      sessionId: sid,
+      notice: { kind: 'info', message: 'Switched to Piper because WebGPU failed.', detail: 'lost' },
+    });
+    const stats = {
+      sessionId: sid,
+      host: 'offscreen' as const,
+      engine: 'piper',
+      backend: 'wasm',
+      state: 'playing' as const,
+      rtf: 0.2,
+      synthesized: 3,
+      cacheHits: 1,
+      bufferAhead: 21,
+      stalls: 0,
+      errors: 1,
+      fallbacks: 1,
+      engineRestarts: 0,
+      at: 1000,
+    };
+    await h.orch.hostEvent('offscreen', { type: 'STATS', stats });
+    await h.orch.command({ type: 'PAUSE' });
+    const r = h.orch.diagnostics();
+    expect(r.stats).toEqual([stats]);
+    expect(r.session).not.toHaveProperty('title');
+    expect(r.session).not.toHaveProperty('url');
+    const lines = r.log.map((e) => `${e.level} ${e.source} ${e.message}`);
+    expect(lines).toEqual(
+      expect.arrayContaining([
+        'info offscreen host connected',
+        'info offscreen state playing (kokoro · webgpu)',
+        'error offscreen state error',
+        'info offscreen Switched to Piper because WebGPU failed.',
+        'info ui command PAUSE',
+      ]),
+    );
+    expect(r.log.find((e) => e.level === 'error')?.detail).toBe('boom');
+    // Nothing from the document leaks into the log.
+    expect(JSON.stringify(r)).not.toContain('https://x.test/a');
+    await h.orch.hostDisconnected('offscreen');
+    expect(h.orch.diagnostics().stats).toEqual([]);
+    expect(h.orch.diagnostics().log.at(-1)).toMatchObject({
+      level: 'warn',
+      message: 'host disconnected',
+    });
+  });
+});
+
 describe('protocol', () => {
   it('accepts valid UI commands and rejects the rest', () => {
     expect(parseUiCommand({ type: 'PLAY' })).toEqual({ type: 'PLAY' });

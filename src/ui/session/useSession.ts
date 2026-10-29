@@ -49,7 +49,11 @@ export function useSession() {
         if (m.type === 'SESSION') setSession(m.session);
         if (m.type === 'DOC') setDoc(m.doc);
         if (m.type === 'NOTICE')
-          toast({ kind: m.notice.kind === 'error' ? 'error' : 'info', title: m.notice.message });
+          toast({
+            kind: m.notice.kind === 'error' ? 'error' : 'info',
+            title: m.notice.message,
+            ...(m.notice.detail ? { description: m.notice.detail } : {}),
+          });
         if (m.type === 'SYNC') {
           follower.apply(m.event);
           cancelAnimationFrame(raf);

@@ -1,6 +1,7 @@
 /** Turns stored settings into the settings a reading session runs with. */
 import type { InstalledIndex } from '@/core/models/manager';
 import type { Settings } from '@/core/settings';
+import { fallbackLadder } from '@/core/tts/fallback';
 import { DEFAULT_SESSION_SETTINGS, type SessionSettings } from './protocol';
 
 /**
@@ -19,8 +20,19 @@ export function sessionSettingsFrom(
       ? { engineId: 'kokoro', modelId: kokoro.modelId, voice: 'af_heart' }
       : { engineId: 'system', voice: '' };
   }
+  const cacheCapBytes = s.cacheCapMB * 1024 * 1024;
   if (!voice)
-    return { ...DEFAULT_SESSION_SETTINGS, rate: s.rate, pacing: s.pacing, skipRules: s.skipRules };
+    return {
+      ...DEFAULT_SESSION_SETTINGS,
+      rate: s.rate,
+      pacing: s.pacing,
+      skipRules: s.skipRules,
+      cacheCapBytes,
+    };
+  const models = Object.values(installed).map((m) => ({
+    engineId: m.modelId.split('-')[0] ?? '',
+    modelId: m.modelId,
+  }));
   return {
     rate: s.rate,
     pacing: s.pacing,
@@ -29,5 +41,7 @@ export function sessionSettingsFrom(
     backend: voice.backend,
     voice: voice.voice,
     skipRules: s.skipRules,
+    cacheCapBytes,
+    fallbacks: fallbackLadder(voice, models, { system: !test }),
   };
 }

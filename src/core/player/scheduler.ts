@@ -33,6 +33,8 @@ export interface SchedulerStats {
 export class PrefetchScheduler<T> {
   private readonly slots = new Map<string, Slot<T>>();
   private running = 0;
+  /** Called after a job's result becomes ready (the player re-plans its window). */
+  onReady?: (key: string) => void;
   readonly stats: SchedulerStats = { queued: 0, running: 0, ready: 0, aborted: 0, completed: 0 };
 
   constructor(
@@ -149,6 +151,7 @@ export class PrefetchScheduler<T> {
         slot.value = v;
         this.stats.completed++;
         slot.resolve(v);
+        this.onReady?.(slot.key);
         this.pump();
       },
       (e: unknown) => {

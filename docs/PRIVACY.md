@@ -22,6 +22,10 @@ prompting per site. Details of what is stored where are added as storage lands (
 | IndexedDB `open-reader` → `library` | Title, URL and last position of documents you read                                                            | Until removed            |
 | OPFS `documents/`                   | Copies of PDFs you open in the reader, named by content hash, so they reopen after a restart                  | Until removed            |
 
-Document text and PDFs are stored only on this device and never sent anywhere. `reader.html` is a
+Document text and PDFs are stored only on this device and never sent anywhere.
+
+Diagnostics (M10) keep a log of events, states and errors in the service worker's memory, never
+document text, titles or URLs. **Copy diagnostics** puts a JSON report on your clipboard only when you
+press it; keys named like an API key, token, secret or password are replaced with `[redacted]`. `reader.html` is a
 web-accessible resource only so the optional PDF redirect can open it; it reads nothing until you
 open a document.

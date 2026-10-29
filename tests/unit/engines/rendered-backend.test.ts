@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { postProcess } from '@/core/audio/process';
 import type { BackendEvent } from '@/core/player/backend';
-import { RenderedBackend } from '@/engines/playback/rendered';
+import { RenderedBackend, START_POLL_LIMIT_MS } from '@/engines/playback/rendered';
 import { synthesizeTone } from '@/engines/test/engine';
 
 class FakeAudio extends EventTarget {
@@ -49,6 +49,24 @@ function make() {
 }
 
 describe('RenderedBackend', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('announces the start once the media clock moves, with the real clock', () => {
+    const { b, els, events } = make();
+    b.play(audio('first'), { rate: 1 });
+    vi.advanceTimersByTime(12);
+    expect(events).toEqual([]);
+    els[0]!.currentTime = 0.004;
+    vi.advanceTimersByTime(4);
+    expect(events).toEqual([{ type: 'started', mediaTime: 0.004, epochMs: 1000 }]);
+    // Paused before the clock moved: nothing is announced.
+    b.play(audio('second'), { rate: 1 });
+    b.pause();
+    vi.advanceTimersByTime(START_POLL_LIMIT_MS + 10);
+    expect(events).toHaveLength(1);
+  });
+
   it('sets preservesPitch on both decks and plays one at a time', () => {
     const { b, els, events } = make();
     expect(els.every((e) => e.preservesPitch)).toBe(true);
@@ -56,6 +74,7 @@ describe('RenderedBackend', () => {
     const a2 = audio('second');
     b.play(a1, { rate: 1.5 });
     expect(b.audibleCount()).toBe(1);
+    vi.advanceTimersByTime(START_POLL_LIMIT_MS + 10); // the fake clock never moves
     expect(events[0]).toEqual({ type: 'started', mediaTime: 0, epochMs: 1000 });
     b.preload(a2);
     b.preload(a2); // idempotent
@@ -85,6 +104,7 @@ describe('RenderedBackend', () => {
   it('forwards ended and error only from the active deck', () => {
     const { b, els, events } = make();
     b.play(audio('x'), { rate: 1 });
+    vi.advanceTimersByTime(START_POLL_LIMIT_MS + 10);
     els[1]!.dispatchEvent(new Event('ended'));
     expect(events.filter((e) => e.type === 'ended')).toHaveLength(0);
     els[0]!.dispatchEvent(new Event('ended'));

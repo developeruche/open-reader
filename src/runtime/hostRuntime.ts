@@ -5,9 +5,19 @@
 import type { ReadingDocument } from '@/core/document/model';
 import type { PlaybackBackend } from '@/core/player/backend';
 import type { SynthesisCache } from '@/core/player/cache';
-import { Player } from '@/core/player/player';
+import { NOTHING_TO_READ, Player } from '@/core/player/player';
+import { switchMessage, type EngineChoice } from '@/core/tts/fallback';
 import type { RenderEngine } from '@/core/tts/engine';
-import type { HostCommand, HostEvent, HostKind, HostStatus, SessionSettings } from './protocol';
+import type {
+  HostCommand,
+  HostEvent,
+  HostKind,
+  HostStats,
+  HostStatus,
+  SessionSettings,
+} from './protocol';
+
+export const STATS_MS = 1000;
 
 export interface HostRuntimeDeps {
   kind: HostKind;
@@ -21,6 +31,7 @@ export interface HostRuntimeDeps {
   emit(e: HostEvent): void;
   /** Drops the current engine so the next engineFor() starts a fresh worker. */
   resetEngine?(): void;
+  now?(): number;
 }
 
 export class HostRuntime {
@@ -29,6 +40,8 @@ export class HostRuntime {
   private engineLabel: { engine: string; backend: string } | undefined;
   private sessionId: string | undefined;
   private doc: ReadingDocument | undefined;
+  private statsTimer: ReturnType<typeof setInterval> | undefined;
+  private counts = { fallbacks: 0, engineRestarts: 0 };
 
   constructor(private readonly deps: HostRuntimeDeps) {
     this.activeBackend = deps.backend;
@@ -56,9 +69,25 @@ export class HostRuntime {
     };
   }
 
+  stats(): HostStats | null {
+    const p = this.player;
+    if (!p || !this.sessionId) return null;
+    return {
+      ...p.stats(),
+      ...this.counts,
+      sessionId: this.sessionId,
+      host: this.deps.kind,
+      engine: this.engineLabel?.engine ?? '',
+      backend: this.engineLabel?.backend ?? '',
+      state: p.state,
+      at: (this.deps.now ?? Date.now)(),
+    };
+  }
+
   async handle(cmd: HostCommand): Promise<void> {
     switch (cmd.type) {
       case 'LOAD':
+        if (cmd.sessionId !== this.sessionId) this.counts = { fallbacks: 0, engineRestarts: 0 };
         await this.load(cmd);
         break;
       case 'PLAYER':
@@ -76,13 +105,17 @@ export class HostRuntime {
 
   private loadToken = 0;
 
-  private async load(cmd: Extract<HostCommand, { type: 'LOAD' }>): Promise<void> {
+  private async load(
+    cmd: Extract<HostCommand, { type: 'LOAD' }>,
+    failed?: { from: EngineChoice; error: string },
+  ): Promise<void> {
     const token = ++this.loadToken;
     this.unload();
-    this.lastSettings = cmd.settings;
+    if (cmd.settings.cacheCapBytes) void this.deps.cache?.setCap?.(cmd.settings.cacheCapBytes);
+    let settings = cmd.settings;
     let opened: Awaited<ReturnType<HostRuntimeDeps['engineFor']>>;
     try {
-      opened = await this.deps.engineFor(cmd.settings);
+      ({ opened, settings } = await this.openWithFallback(cmd, token, failed));
     } catch (e) {
       if (token !== this.loadToken) return;
       // Never fail silently (§1): report a visible error the user can act on.
@@ -107,6 +140,7 @@ export class HostRuntime {
       });
       return;
     }
+    this.lastSettings = settings;
     const { engine, model } = opened;
     this.engineLabel = {
       engine: engine.id,
@@ -127,10 +161,10 @@ export class HostRuntime {
       sessionId,
       cache: this.deps.cache,
       settings: {
-        rate: cmd.settings.rate,
-        voice: cmd.settings.voice,
-        pacing: cmd.settings.pacing,
-        ...(cmd.settings.skipRules ? { skipRules: cmd.settings.skipRules } : {}),
+        rate: settings.rate,
+        voice: settings.voice,
+        pacing: settings.pacing,
+        ...(settings.skipRules ? { skipRules: settings.skipRules } : {}),
       },
       start: cmd.start,
       concurrency: engine.caps.backends.includes('webgpu') ? 1 : 2,
@@ -140,10 +174,13 @@ export class HostRuntime {
       onEngineRestart: () => void this.restartEngine(),
     });
     this.player = player;
+    this.startStats();
     let last = '';
     player.actor.subscribe(() => {
       const st = this.status();
       if (!st) return;
+      if (st.state === 'error' && st.error !== NOTHING_TO_READ && this.player === player)
+        if (this.fallBack(st.error ?? 'Playback failed')) return;
       const key = JSON.stringify([st.state, st.cursor, st.rate, st.voice, st.error]);
       if (key === last) return;
       last = key;
@@ -154,6 +191,110 @@ export class HostRuntime {
     if (cmd.autoplay) player.send({ type: 'PLAY' });
   }
 
+  /**
+   * Tries the session's engine (twice: a retry on the same backend), then each fallback rung.
+   * Returns the settings that worked, with the remaining rungs as its fallbacks.
+   */
+  private async openWithFallback(
+    cmd: Extract<HostCommand, { type: 'LOAD' }>,
+    token: number,
+    failed?: { from: EngineChoice; error: string },
+  ): Promise<{
+    opened: Awaited<ReturnType<HostRuntimeDeps['engineFor']>>;
+    settings: SessionSettings;
+  }> {
+    const primary = cmd.settings;
+    const rungs = primary.fallbacks ?? [];
+    let lastError: unknown;
+    let from: EngineChoice = failed?.from ?? primary;
+    for (let i = -1; i < rungs.length; i++) {
+      const rung = i < 0 ? undefined : rungs[i];
+      const settings: SessionSettings = rung
+        ? {
+            ...primary,
+            engineId: rung.engineId,
+            modelId: rung.modelId,
+            backend: rung.backend,
+            voice: rung.voice ?? primary.voice,
+            fallbacks: rungs.slice(i + 1),
+          }
+        : primary;
+      for (let attempt = 0; attempt < (rung ? 1 : 2); attempt++) {
+        if (token !== this.loadToken) throw new Error('superseded');
+        try {
+          if (attempt > 0) this.deps.resetEngine?.();
+          const opened = await this.deps.engineFor(settings);
+          const switched = rung !== undefined || failed !== undefined;
+          if (switched && token === this.loadToken) {
+            this.counts.fallbacks++;
+            this.deps.emit({
+              type: 'NOTICE',
+              sessionId: cmd.sessionId,
+              notice: {
+                kind: 'info',
+                message: switchMessage(from, settings),
+                detail: failed?.error ?? errorText(lastError),
+              },
+            });
+          }
+          return { opened, settings };
+        } catch (e) {
+          lastError = e;
+          from = settings;
+        }
+      }
+    }
+    throw lastError instanceof Error ? lastError : new Error(errorText(lastError));
+  }
+
+  /** Playback failed after the player's own retries: move down the ladder (§9.2). */
+  private fallBack(error: string): boolean {
+    const p = this.player;
+    const doc = this.doc;
+    const sessionId = this.sessionId;
+    const [next, ...rest] = this.lastSettings.fallbacks ?? [];
+    if (!p || !doc || !sessionId || !next) return false;
+    const c = p.snapshot.context;
+    const from: EngineChoice = {
+      engineId: this.lastSettings.engineId,
+      modelId: this.lastSettings.modelId,
+      backend:
+        this.engineLabel?.backend === 'webgpu' || this.engineLabel?.backend === 'wasm'
+          ? this.engineLabel.backend
+          : this.lastSettings.backend,
+    };
+    this.deps.resetEngine?.();
+    void this.load(
+      {
+        type: 'LOAD',
+        sessionId,
+        doc,
+        start: { sentence: c.cursor.sentence, word: c.cursor.word },
+        settings: {
+          ...this.lastSettings,
+          engineId: next.engineId,
+          modelId: next.modelId,
+          backend: next.backend,
+          voice: next.voice ?? c.voice,
+          rate: c.rate,
+          pacing: c.pacing,
+          fallbacks: rest,
+        },
+        autoplay: true,
+      },
+      { from, error },
+    );
+    return true;
+  }
+
+  private startStats(): void {
+    if (this.statsTimer) return;
+    this.statsTimer = setInterval(() => {
+      const st = this.stats();
+      if (st) this.deps.emit({ type: 'STATS', stats: st });
+    }, STATS_MS);
+  }
+
   /** Watchdog asked for a restart (§9.2): new engine worker, same session and position. */
   async restartEngine(): Promise<void> {
     const p = this.player;
@@ -162,6 +303,7 @@ export class HostRuntime {
     if (!p || !doc || !sessionId) return;
     const c = p.snapshot.context;
     this.deps.resetEngine?.();
+    this.counts.engineRestarts++;
     await this.load({
       type: 'LOAD',
       sessionId,
@@ -170,6 +312,12 @@ export class HostRuntime {
       settings: { ...this.lastSettings, rate: c.rate, voice: c.voice, pacing: c.pacing },
       autoplay: true,
     });
+  }
+
+  dispose(): void {
+    this.unload();
+    if (this.statsTimer) clearInterval(this.statsTimer);
+    this.statsTimer = undefined;
   }
 
   private lastSettings: SessionSettings = {
@@ -185,4 +333,8 @@ export class HostRuntime {
     this.sessionId = undefined;
     this.doc = undefined;
   }
+}
+
+function errorText(e: unknown): string {
+  return e instanceof Error ? e.message : e === undefined ? '' : String(e);
 }

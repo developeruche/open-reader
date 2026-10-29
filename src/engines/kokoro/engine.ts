@@ -40,6 +40,9 @@ export async function detectBackend(): Promise<'webgpu' | 'wasm'> {
   }
 }
 
+/** WebGPU storage buffer cache for Kokoro (ADR 0017). */
+export const KOKORO_GPU_CACHE = 'lazyRelease' as const;
+
 export class KokoroEngine implements RenderEngine {
   readonly kind = 'render' as const;
   readonly id = 'kokoro';
@@ -91,7 +94,13 @@ export class KokoroEngine implements RenderEngine {
     });
     await this.session?.release();
     this.session = await ort.InferenceSession.create(new Uint8Array(weights), {
-      executionProviders: [this.backend],
+      // Kokoro's inputs vary in length: the default 'bucket' cache keeps a buffer per size bucket
+      // and grew GPU memory past 1.8 GB over a long read. Release buffers after each run (ADR 0017).
+      executionProviders: [
+        this.backend === 'webgpu'
+          ? { name: 'webgpu', storageBufferCacheMode: KOKORO_GPU_CACHE }
+          : this.backend,
+      ],
       graphOptimizationLevel: 'all',
     });
     opts.onProgress?.({ loaded: 3, total: 3 });

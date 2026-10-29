@@ -12,7 +12,7 @@
 - [x] M7: Piper, system voices and the voice bake-off
 - [x] M8: Web mode, end to end
 - [x] M9: Document mode (PDF), end to end
-- [ ] M10: Reliability, performance and diagnostics hardening
+- [x] M10: Reliability, performance and diagnostics hardening
 - [ ] M11: Power features
 - [ ] M12: Online voices (opt-in)
 - [ ] M13: OCR for scanned PDFs (optional)
@@ -20,11 +20,12 @@
 
 ## Decisions
 
-| ADR                                    | Decision                                                                                                     |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| [0001](adr/0001-toolchain-versions.md) | TypeScript 6.0 and ESLint 9 (newest typescript-eslint and jsx-a11y support)                                  |
-| [0002](adr/0002-ui-skills.md)          | UI skills vendored at project scope from pinned commits; `minimalist-ui` now lives in `taste-skill-classics` |
-| [0016](adr/0016-document-mode.md)      | PDF layout analysis, text-layer mapping, OPFS document store and opt-in PDF interception                     |
+| ADR                                                     | Decision                                                                                                     |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| [0001](adr/0001-toolchain-versions.md)                  | TypeScript 6.0 and ESLint 9 (newest typescript-eslint and jsx-a11y support)                                  |
+| [0002](adr/0002-ui-skills.md)                           | UI skills vendored at project scope from pinned commits; `minimalist-ui` now lives in `taste-skill-classics` |
+| [0016](adr/0016-document-mode.md)                       | PDF layout analysis, text-layer mapping, OPFS document store and opt-in PDF interception                     |
+| [0017](adr/0017-reliability-diagnostics-and-budgets.md) | Fallback ladder, diagnostics, budgets, soak test, SLO results; COOP/COEP stays off; memory miss plan         |
 
 ## UI/UX skills installed (M0)
 
@@ -48,7 +49,8 @@ Installed into `.claude/skills/` by copying from pinned commits after reading ev
 - Scanned PDFs (no text layer) open but cannot be read until OCR (M13); the reader notes how many pages lack text.
 - PDF reading order is heuristic (ADR 0016); use "Show reading order" in the reader to spot mistakes.
 
-- The content script is ~580 kB because the mini player uses React; consider a vanilla mini player in M10 if injection time matters.
+- Memory with Kokoro fp32 on WebGPU and a 100-page PDF peaks at ≈ 2.4 GB (target 1.5 GB); plan in ADR 0017 (smaller WebGPU variant, idle engine release).
+- The content script is 366 kB (113 kB gzipped, budget 250 kB) because the mini player uses React; injection stays on demand.
 - "Read page from here" before the first injection starts at the first visible block, not the exact right-click point.
 
 - ASR heard "Schnorr" (respelled "shnor") as "snore"; confirm by ear (ADR 0014).
@@ -56,8 +58,6 @@ Installed into `.claude/skills/` by copying from pinned commits after reading ev
 
 - HeadTTS's G2P reads a standalone spelled letter "A" (in acronyms such as "A P I") as "uh". Most
   acronyms are unaffected; revisit with the M7 quality harness.
-- The runtime "voice is too slow" suggestion (§6.4.4) has its monitor (`RtfMonitor`) but is wired
-  into the player in M10.
 
 - Speed above 2× (model speed 1.25 + slower playback) still needs the listening test planned for M7.
 
@@ -73,6 +73,20 @@ Throwaway code under `spikes/` (excluded from build, lint and typecheck). Reprod
 `pnpm spikes:setup && pnpm spikes:build && pnpm spikes:run`; results land in `spikes/out/` (gitignored).
 
 ## Manual QA scripts
+
+### M10
+
+1. Start reading a page, then open Options → Diagnostics: state, engine and backend, real-time
+   factor, buffer ahead (about 20 s or more), cache hit rate and zero stalls update every second.
+2. The log lists commands and state changes but no text from the page. **Copy diagnostics** puts
+   JSON on the clipboard; paste it somewhere and check it has no page text or keys.
+3. Turn on **Reading order overlay for PDFs**, then open a PDF: the blocks are numbered.
+4. Options → Storage shows real sizes for models, audio cache and stored PDFs. Change the audio
+   cache limit, clear the audio cache, and remove stored PDFs.
+5. Fallback (optional): in `chrome://flags` disable WebGPU, restart Chrome, and read a page with
+   Kokoro on WebGPU selected. A notice says Kokoro switched to WASM, and reading continues.
+6. Read for 10 minutes without touching anything: no pauses, and the word highlight stays on the
+   word being spoken.
 
 ### M9
 

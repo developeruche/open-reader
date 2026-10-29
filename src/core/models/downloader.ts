@@ -135,3 +135,49 @@ export async function downloadFile(
   }
   await o.store.commit(dest);
 }
+
+export interface RetryOptions {
+  attempts?: number;
+  /** First backoff delay; doubles after each failure. */
+  baseMs?: number;
+  sleep?(ms: number, signal?: AbortSignal): Promise<void>;
+}
+
+/** Transient failures worth retrying: network errors, truncated bodies, 408/429/5xx. */
+export function isTransient(e: unknown): boolean {
+  if (e instanceof HttpError) return e.status === 408 || e.status === 429 || e.status >= 500;
+  if (e instanceof IntegrityError) return false;
+  if (e instanceof Error && e.name === 'AbortError') return false;
+  return e instanceof TypeError || (e instanceof Error && e.message.startsWith('Incomplete'));
+}
+
+const defaultSleep = (ms: number, signal?: AbortSignal) =>
+  new Promise<void>((resolve, reject) => {
+    const t = setTimeout(resolve, ms);
+    signal?.addEventListener('abort', () => {
+      clearTimeout(t);
+      reject(Object.assign(new Error('Aborted'), { name: 'AbortError' }));
+    });
+  });
+
+/**
+ * downloadFile with retry and exponential backoff (§9.2): each retry resumes from the bytes
+ * already stored, so a flaky connection costs time, not progress.
+ */
+export async function downloadWithRetry(
+  file: ModelFile,
+  dest: string,
+  o: DownloadOptions,
+  r: RetryOptions = {},
+): Promise<void> {
+  const attempts = r.attempts ?? 4;
+  const sleep = r.sleep ?? defaultSleep;
+  for (let i = 0; ; i++) {
+    try {
+      return await downloadFile(file, dest, o);
+    } catch (e) {
+      if (i + 1 >= attempts || !isTransient(e) || o.signal?.aborted) throw e;
+      await sleep((r.baseMs ?? 1000) * 2 ** i, o.signal);
+    }
+  }
+}

@@ -2,14 +2,15 @@ import { browser, type Browser } from 'wxt/browser';
 import { IdbLibrary } from './library';
 import { closeOffscreen, ensureOffscreen, offscreenExists } from './offscreen';
 import { ChromeSessionStore } from './session';
-import { loadSettings } from './settings';
+import { loadSettings, watchSettings } from './settings';
+import { setPdfInterception } from './pdfIntercept';
 import { chromeTts } from './tts';
 import { INSTALLED_KEY, type InstalledIndex } from '@/core/models/manager';
 import { localStore } from './kv';
 import { Orchestrator, type DebugEvent } from '@/runtime/orchestrator';
+import { sessionSettingsFrom } from '@/runtime/sessionSettings';
 import { HIGHLIGHT_CSS } from '@/web/highlightCss';
 import {
-  DEFAULT_SESSION_SETTINGS,
   parseUiCommand,
   PORT,
   type ContentMessage,
@@ -74,33 +75,8 @@ export function startBackground(): void {
       },
     },
     async settings() {
-      const s = await loadSettings();
-      // Default: the chosen voice; else Kokoro if installed; else system voices (zero download).
-      // Test builds use the deterministic TestEngine unless a test chose a voice.
-      let voice = s.voice;
-      if (!voice && !TEST) {
-        const installed = (await localStore().get<InstalledIndex>(INSTALLED_KEY)) ?? {};
-        const kokoro = Object.values(installed).find((m) => m.modelId.startsWith('kokoro'));
-        voice = kokoro
-          ? { engineId: 'kokoro', modelId: kokoro.modelId, voice: 'af_heart' }
-          : { engineId: 'system', voice: '' };
-      }
-      if (!voice)
-        return {
-          ...DEFAULT_SESSION_SETTINGS,
-          rate: s.rate,
-          pacing: s.pacing,
-          skipRules: s.skipRules,
-        };
-      return {
-        rate: s.rate,
-        pacing: s.pacing,
-        engineId: voice.engineId,
-        modelId: voice.modelId,
-        backend: voice.backend,
-        voice: voice.voice,
-        skipRules: s.skipRules,
-      };
+      const installed = (await localStore().get<InstalledIndex>(INSTALLED_KEY)) ?? {};
+      return sessionSettingsFrom(await loadSettings(), installed, TEST);
     },
     async activeTabId() {
       const [tab] = await browser.tabs.query({ active: true, lastFocusedWindow: true });
@@ -187,6 +163,12 @@ export function startBackground(): void {
         break;
       }
     }
+  });
+
+  void loadSettings().then((s) => setPdfInterception(s.interceptPdf));
+  let intercept: boolean | undefined;
+  watchSettings((s) => {
+    if (s.interceptPdf !== intercept) void setPdfInterception((intercept = s.interceptPdf));
   });
 
   browser.commands.onCommand.addListener((name) => void orch.keyboardCommand(name));

@@ -97,10 +97,15 @@ test('reader: floating transport and drawers work from the keyboard', async ({
   context,
   extensionId,
 }) => {
+  const { FIXTURE_ORIGIN, serveFixtures } = await import('./runtime-helpers');
+  await serveFixtures(context);
   const page = await context.newPage();
   await page.setViewportSize({ width: 1280, height: 860 });
-  await open(page, extensionId, 'reader');
+  await page.goto(
+    `chrome-extension://${extensionId}/reader.html?src=${encodeURIComponent(`${FIXTURE_ORIGIN}/pdf/two-column.pdf`)}`,
+  );
   const follow = page.getByRole('button', { name: 'Follow' });
+  await follow.waitFor();
   await follow.focus();
   await page.keyboard.press('Enter');
   await expect(follow).toHaveAttribute('aria-pressed', 'false');
@@ -114,6 +119,9 @@ test('reader: floating transport and drawers work from the keyboard', async ({
     'aria-checked',
     'false',
   );
+  await page.getByRole('button', { name: 'Play', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
 });
 
 test('theme preference persists across pages', async ({ context, extensionId }) => {

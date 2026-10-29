@@ -1,7 +1,7 @@
 /** The side panel (Web mode, PLAN.md §3.4.1) wired to the live reading session. */
 import { useCallback, useEffect, type ReactNode } from 'react';
 import { REGISTRY } from '@/engines/factory';
-import { openOptions } from '@/platform/tabs';
+import { isPdfUrl, openOptions, openReader, tabUrl } from '@/platform/tabs';
 import type { SessionInfo, UiCommand } from '@/runtime/protocol';
 import { BookOpen, FileText, MoreHorizontal, Settings, SkipBack, SkipForward } from '../icons';
 import { Button, EmptyState, IconButton, Menu, Select, Tabs, Toggle } from '../components';
@@ -48,6 +48,10 @@ export function LiveSidePanel({ useAppearance }: { useAppearance: useAppearanceH
   const { session, doc, view, live, tabId, send } = useSession();
   const { theme, setTheme } = useAppearance();
   const [follow, setFollow] = useState(true);
+  const [pdfUrl, setPdfUrl] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    if (tabId !== undefined) void tabUrl(tabId).then((u) => setPdfUrl(isPdfUrl(u) ? u : undefined));
+  }, [tabId]);
   const playing = !!session && ACTIVE.has(session.state);
   const cmd = useCallback((c: UiCommand) => send(c), [send]);
   const readPage = () => tabId !== undefined && cmd({ type: 'READ_TAB', tabId });
@@ -138,9 +142,15 @@ export function LiveSidePanel({ useAppearance }: { useAppearance: useAppearanceH
               'Read the article in this tab, or right-click any page and choose Read page from here. Alt+click a word to start there.'
             }
             action={
-              <Button variant="primary" onClick={readPage} disabled={tabId === undefined}>
-                Read this page
-              </Button>
+              pdfUrl ? (
+                <Button variant="primary" onClick={() => openReader(pdfUrl)}>
+                  Open in Open Reader
+                </Button>
+              ) : (
+                <Button variant="primary" onClick={readPage} disabled={tabId === undefined}>
+                  Read this page
+                </Button>
+              )
             }
           />
         </main>

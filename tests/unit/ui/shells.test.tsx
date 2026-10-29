@@ -1,4 +1,4 @@
-import { act, render, screen, within } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildBlock } from '@/core/document/build';
@@ -39,10 +39,16 @@ let sessionState: Record<string, unknown> = {};
 vi.mock('@/ui/session/useSession', () => ({
   useSession: () => ({ ...sessionState, send: (c: unknown) => sent.push(c) }),
 }));
-vi.mock('@/platform/tabs', () => ({ openOptions: vi.fn(), targetTabId: async () => 7 }));
+vi.mock('@/platform/tabs', () => ({
+  openOptions: vi.fn(),
+  openReader: vi.fn(),
+  targetTabId: async () => 7,
+  tabUrl: async () => 'https://example.com/',
+  isPdfUrl: (u: string) => u.endsWith('.pdf'),
+}));
 vi.mock('@/platform/settings', () => ({
-  saveSettings: vi.fn(async () => ({})),
-  loadSettings: vi.fn(async () => ({ strictOffline: true })),
+  saveSettings: vi.fn(async () => (await import('@/core/settings')).DEFAULT_SETTINGS),
+  loadSettings: vi.fn(async () => (await import('@/core/settings')).DEFAULT_SETTINGS),
 }));
 vi.mock('@/platform/tts', () => ({
   chromeTts: () => ({
@@ -55,7 +61,6 @@ vi.mock('@/platform/tts', () => ({
 
 const { LiveSidePanel } = await import('@/ui/shells/LiveSidePanel');
 const { docView } = await import('@/ui/session/docView');
-const { ReaderApp } = await import('@/ui/shells/ReaderApp');
 const { OptionsApp } = await import('@/ui/shells/OptionsApp');
 const { OnboardingApp } = await import('@/ui/shells/OnboardingApp');
 const { GalleryApp } = await import('@/ui/shells/GalleryApp');
@@ -195,25 +200,6 @@ describe('LiveSidePanel', () => {
     expect(screen.getByText('The voice could not start.')).toBeTruthy();
     await userEvent.click(screen.getByRole('button', { name: 'Play' }));
     expect(sent).toContainEqual({ type: 'RETRY' });
-  });
-});
-
-describe('ReaderApp', () => {
-  it('pages, zooms and toggles drawers', async () => {
-    wrap(<ReaderApp />);
-    await userEvent.click(screen.getByRole('button', { name: 'Next page' }));
-    expect(screen.getByText('Page 2 / 3')).toBeTruthy();
-    await userEvent.click(screen.getByRole('button', { name: 'Previous page' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Zoom in' }));
-    expect(screen.getByText('125%')).toBeTruthy();
-    await userEvent.click(screen.getByRole('button', { name: 'Zoom out' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Hide pages and outline' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Show reading rules' }));
-    await userEvent.click(screen.getByRole('switch', { name: 'Skip figure captions' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Follow' }));
-    expect(useMockPlayer.getState().follow).toBe(false);
-    await userEvent.click(screen.getByRole('button', { name: 'Play' }));
-    act(() => useMockPlayer.getState().pause());
   });
 });
 

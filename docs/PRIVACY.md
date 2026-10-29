@@ -20,5 +20,8 @@ prompting per site. Details of what is stored where are added as storage lands (
 | `chrome.storage.local`              | Appearance and, later, settings                                                                               | Until removed            |
 | IndexedDB `open-reader` → `audio`   | Synthesized audio for recently read sentences (LRU, 512 MB cap)                                               | Until evicted or cleared |
 | IndexedDB `open-reader` → `library` | Title, URL and last position of documents you read                                                            | Until removed            |
+| OPFS `documents/`                   | Copies of PDFs you open in the reader, named by content hash, so they reopen after a restart                  | Until removed            |
 
-Document text is stored only on this device and never sent anywhere.
+Document text and PDFs are stored only on this device and never sent anywhere. `reader.html` is a
+web-accessible resource only so the optional PDF redirect can open it; it reads nothing until you
+open a document.

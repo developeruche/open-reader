@@ -1,0 +1,11 @@
+{
+  "blocks": [
+    "A partially signed transaction is a container for a transaction that is not finished yet. Each wallet that touches it adds what it knows, and nobody has to trust anybody else with private keys.",
+    "Figure 1. The roles of a signing session.",
+    "References"
+  ],
+  "skipped": [
+    "A. Chow",
+    "Wallet survey"
+  ]
+}

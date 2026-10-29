@@ -55,8 +55,8 @@ export function createInPageHost(onEvent?: (e: HostEvent) => void): InPageHost {
     },
     emit(e) {
       onEvent?.(e);
-      // Only arbitration-relevant events go to the background.
-      if (e.type === 'HELLO' || e.type === 'STATUS' || e.type === 'POSITION') port.post(e);
+      // Only arbitration-relevant events go to the background (the reader saves its own positions).
+      if (e.type === 'HELLO' || e.type === 'STATUS') port.post(e);
     },
   });
   const port = connectWithRetry<HostCommand, HostEvent>({

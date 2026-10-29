@@ -5,9 +5,11 @@ Every dependency's license is checked by `pnpm licenses:check` (allowlist in
 
 ## Runtime dependencies (bundled into the extension)
 
-| Package          | Version | License |
-| ---------------- | ------- | ------- |
-| react, react-dom | 19.3.1  | MIT     |
+| Package              | Version | License    |
+| -------------------- | ------- | ---------- |
+| react, react-dom     | 19.3.1  | MIT        |
+| pdfjs-dist           | 6.4.299 | Apache-2.0 |
+| @mozilla/readability | 0.6.0   | Apache-2.0 |
 
 ## Build and test tools
 

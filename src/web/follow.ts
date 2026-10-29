@@ -20,15 +20,20 @@ export class FollowScroller {
       this.userScrolled();
   };
 
+  private readonly target: Window | HTMLElement;
+
+  /** `scroller`: an element that scrolls instead of the window (the PDF viewer). */
   constructor(
     private readonly view: Window = window,
     private readonly reducedMotion: () => boolean = () =>
       view.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    private readonly scroller?: HTMLElement,
   ) {
-    view.addEventListener('wheel', this.onUser, { passive: true });
-    view.addEventListener('touchmove', this.onUser, { passive: true });
+    this.target = scroller ?? view;
+    this.target.addEventListener('wheel', this.onUser, { passive: true });
+    this.target.addEventListener('touchmove', this.onUser, { passive: true });
     view.addEventListener('keydown', this.onKey, true);
-    view.addEventListener('scroll', this.onScroll, { passive: true });
+    this.target.addEventListener('scroll', this.onScroll, { passive: true });
   }
 
   get suspended(): boolean {
@@ -48,20 +53,23 @@ export class FollowScroller {
   /** Scrolls so `rect` (viewport coordinates) sits in the comfortable band, unless suspended. */
   follow(rect: DOMRect | undefined): boolean {
     if (!rect || !this.enabled || this.suspended) return false;
-    const h = this.view.innerHeight;
-    if (rect.top >= h * BAND.top && rect.bottom <= h * BAND.bottom) return false;
-    const delta = rect.top - h * BAND.target;
+    const box = this.scroller?.getBoundingClientRect();
+    const top = box?.top ?? 0;
+    const h = box?.height ?? this.view.innerHeight;
+    const y = rect.top - top;
+    if (y >= h * BAND.top && rect.bottom - top <= h * BAND.bottom) return false;
+    const delta = y - h * BAND.target;
     const smooth = !this.reducedMotion();
     this.programmaticUntil = performance.now() + (smooth ? 900 : 100);
-    this.view.scrollBy({ top: delta, behavior: smooth ? 'smooth' : 'instant' });
+    this.target.scrollBy({ top: delta, behavior: smooth ? 'smooth' : 'instant' });
     return true;
   }
 
   destroy(): void {
-    this.view.removeEventListener('wheel', this.onUser);
-    this.view.removeEventListener('touchmove', this.onUser);
+    this.target.removeEventListener('wheel', this.onUser);
+    this.target.removeEventListener('touchmove', this.onUser);
     this.view.removeEventListener('keydown', this.onKey, true);
-    this.view.removeEventListener('scroll', this.onScroll);
+    this.target.removeEventListener('scroll', this.onScroll);
     if (this.timer) clearTimeout(this.timer);
   }
 

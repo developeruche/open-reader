@@ -27,7 +27,8 @@
     "models:fetch": "tsx scripts/fetch-models.ts",
     "build:offline": "OPEN_READER_OFFLINE=1 wxt build",
     "synth:corpus": "tsx scripts/synth-corpus.ts",
-    "quality": "uv run --project quality --python 3.12 python quality/asr_qa.py"
+    "quality": "uv run --project quality --python 3.12 python quality/asr_qa.py",
+    "fixtures": "tsx scripts/make-fixtures.ts"
   },
   "dependencies": {
     "@diffusionstudio/piper-wasm": "1.0.0",

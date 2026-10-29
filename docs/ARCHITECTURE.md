@@ -74,3 +74,12 @@ reader.html: HostRuntime (in-page) ──port `inpage-host`──▶ background 
 `painter.ts` (CSS highlights), `cursor.ts`, `follow.ts`, `contrast.ts`, `highlightCss.ts`, and
 `contentApp.ts`, which ties them to the sync stream, keyboard, click-to-read, the mini player and SPA
 recovery. The side panel is `src/ui/shells/LiveSidePanel.tsx` with `src/ui/session/`.
+
+## Document mode (M9)
+
+`src/pdf/`: `textContent.ts` (PDF.js text items), `layout.ts` + `layout.worker.ts` (reading order,
+headers/footers, columns, captions, references), `viewer.ts` (`PdfView` over PDF.js `PDFViewer`),
+`textLayerMap.ts` (block offsets ↔ text layer ranges) and `readerController.ts`, which owns the
+in-page host, the player, painting, follow-scroll and click-to-read. The UI is
+`src/ui/shells/LiveReader.tsx` on `reader.html`. PDFs are stored by `src/platform/documents.ts`;
+`src/platform/pdfIntercept.ts` manages the optional redirect rule. See ADR 0016.

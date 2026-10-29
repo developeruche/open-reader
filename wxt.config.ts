@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'wxt';
@@ -23,6 +23,20 @@ const RUNTIME_ASSETS: [src: string, dest: string][] = [
     'piper/piper_phonemize.data',
   ],
 ];
+
+/** PDF.js worker, WASM image decoders, standard fonts and cMaps (§8.2), all local. */
+function pdfAssets(): [string, string][] {
+  const out: [string, string][] = [
+    ['node_modules/pdfjs-dist/build/pdf.worker.min.mjs', 'pdfjs/pdf.worker.min.mjs'],
+  ];
+  for (const dir of ['wasm', 'standard_fonts', 'cmaps']) {
+    const root = path.join('node_modules/pdfjs-dist', dir);
+    for (const name of readdirSync(root))
+      if (statSync(path.join(root, name)).isFile())
+        out.push([path.join(root, name), `pdfjs/${dir}/${name}`]);
+  }
+  return out;
+}
 
 /**
  * `pnpm build:offline` bundles the default model (from `pnpm models:fetch`, models/cache) at
@@ -64,7 +78,7 @@ export default defineConfig({
   }),
   hooks: {
     'build:publicAssets': (_wxt, files) => {
-      for (const [src, dest] of [...RUNTIME_ASSETS, ...offlineModels()])
+      for (const [src, dest] of [...RUNTIME_ASSETS, ...pdfAssets(), ...offlineModels()])
         files.push({ absoluteSrc: path.resolve(src), relativeDest: dest });
     },
     // The component gallery is a test fixture; keep it out of production builds.
@@ -114,7 +128,8 @@ export default defineConfig({
         description: 'Previous sentence',
       },
     },
-    web_accessible_resources: [],
+    // reader.html is reachable from pages only so the optional PDF redirect can land on it.
+    web_accessible_resources: [{ resources: ['reader.html'], matches: ['<all_urls>'] }],
     // Exposed to tests so they can tell a test build apart.
     ...(mode === 'test' ? { short_name: 'Open Reader (test)' } : {}),
   }),

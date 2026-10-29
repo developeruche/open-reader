@@ -1,0 +1,6 @@
+{
+  "blocks": [
+    "The signer checks every amount and the signature covers all inputs before the transaction is broadcast to the whole network."
+  ],
+  "skipped": []
+}

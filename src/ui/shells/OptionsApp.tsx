@@ -1,4 +1,7 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import type { Settings } from '@/core/settings';
+import type { SkipRules } from '@/core/text/skip';
+import { loadSettings, saveSettings } from '@/platform/settings';
 import { Ban, Gauge, Globe, HardDrive, Info, Keyboard, Mic, Stethoscope, Type } from '../icons';
 import {
   Button,
@@ -7,6 +10,7 @@ import {
   Kbd,
   Progress,
   Select,
+  Skeleton,
   SkipLink,
   Slider,
   Toggle,
@@ -98,20 +102,29 @@ function Playback() {
 }
 
 function Rules() {
-  const [r, setR] = useState({
-    code: true,
-    tables: true,
-    citations: true,
-    urls: true,
-    refs: true,
-    headers: true,
-  });
-  const row = (k: keyof typeof r, label: string, description?: string) => (
+  const [settings, setSettings] = useState<Settings | null>(null);
+  useEffect(() => {
+    void loadSettings().then(setSettings);
+  }, []);
+  if (!settings)
+    return (
+      <Section
+        title="Reading rules"
+        intro="What the voice passes over. Skipped text stays on screen."
+      >
+        <Skeleton className="h-40 w-full" />
+      </Section>
+    );
+  const r = settings.skipRules;
+  const update = (patch: Partial<Settings>) => void saveSettings(patch).then(setSettings);
+  const rule = (k: keyof SkipRules, label: string, description?: string, on: string = 'skip') => (
     <Toggle
       label={label}
       description={description}
-      checked={r[k]}
-      onCheckedChange={(v) => setR({ ...r, [k]: v })}
+      checked={r[k] === on}
+      onCheckedChange={(v) =>
+        update({ skipRules: { ...r, [k]: v ? on : on === 'skip' ? 'read' : 'skip' } as SkipRules })
+      }
     />
   );
   return (
@@ -120,12 +133,28 @@ function Rules() {
       intro="What the voice passes over. Skipped text stays on screen."
     >
       <div className="divide-y divide-line border-y border-line">
-        {row('code', 'Skip code blocks', 'Says “Code block skipped” once.')}
-        {row('tables', 'Skip tables')}
-        {row('citations', 'Skip bracketed citations like [12]')}
-        {row('urls', 'Skip bare links')}
-        {row('refs', 'Skip references and bibliography')}
-        {row('headers', 'Skip PDF headers, footers and page numbers')}
+        {rule('codeBlocks', 'Skip code blocks')}
+        <Toggle
+          label="Announce skipped code"
+          description="Says “Code block skipped” once."
+          checked={r.announceSkippedCode}
+          onCheckedChange={(v) => update({ skipRules: { ...r, announceSkippedCode: v } })}
+        />
+        {rule('tables', 'Skip tables', 'Off reads them row by row.')}
+        {rule('citations', 'Skip bracketed citations like [12]')}
+        {rule('urls', 'Skip bare links', 'Off says “link to example dot com”.')}
+        {rule('references', 'Skip references and bibliography')}
+        {rule('headersFooters', 'Skip PDF headers, footers and page numbers')}
+        {rule('captions', 'Skip figure captions')}
+      </div>
+      <h2 className="mt-10 font-serif text-xl tracking-tight">PDF links</h2>
+      <div className="mt-2 border-y border-line">
+        <Toggle
+          label="Open PDF links in Open Reader"
+          description="Instead of Chrome's PDF viewer. Off by default."
+          checked={settings.interceptPdf}
+          onCheckedChange={(v) => update({ interceptPdf: v })}
+        />
       </div>
     </Section>
   );

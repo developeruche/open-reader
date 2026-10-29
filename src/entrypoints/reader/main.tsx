@@ -1,12 +1,12 @@
 import { buildBlock } from '@/core/document/build';
 import { createInPageHost } from '@/runtime/inpageHost';
 import { mount } from '@/ui/mount';
-import { ReaderApp } from '@/ui/shells/ReaderApp';
+import { LiveReader } from '@/ui/shells/LiveReader';
 
-mount(() => <ReaderApp />);
+mount(() => <LiveReader />);
 
-// Test builds: `reader.html?inpageTest=1` starts an in-page engine host with a fixture document so
-// E2E tests can check arbitration between hosts. Document mode wires the real UI in M9.
+// Test builds: `reader.html?inpageTest=1` starts a bare in-page host with a fixture document so
+// E2E tests can check arbitration between hosts.
 if (import.meta.env.MODE === 'test' && new URLSearchParams(location.search).has('inpageTest')) {
   const host = createInPageHost();
   const text =

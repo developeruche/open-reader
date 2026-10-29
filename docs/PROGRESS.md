@@ -11,7 +11,7 @@
 - [x] M6: Model manager and the default engine (Kokoro)
 - [x] M7: Piper, system voices and the voice bake-off
 - [x] M8: Web mode, end to end
-- [ ] M9: Document mode (PDF), end to end
+- [x] M9: Document mode (PDF), end to end
 - [ ] M10: Reliability, performance and diagnostics hardening
 - [ ] M11: Power features
 - [ ] M12: Online voices (opt-in)
@@ -24,6 +24,7 @@
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | [0001](adr/0001-toolchain-versions.md) | TypeScript 6.0 and ESLint 9 (newest typescript-eslint and jsx-a11y support)                                  |
 | [0002](adr/0002-ui-skills.md)          | UI skills vendored at project scope from pinned commits; `minimalist-ui` now lives in `taste-skill-classics` |
+| [0016](adr/0016-document-mode.md)      | PDF layout analysis, text-layer mapping, OPFS document store and opt-in PDF interception                     |
 
 ## UI/UX skills installed (M0)
 
@@ -43,6 +44,9 @@ Installed into `.claude/skills/` by copying from pinned commits after reading ev
 - Playwright Chromium (headless shell) 156.
 
 ## Known issues
+
+- Scanned PDFs (no text layer) open but cannot be read until OCR (M13); the reader notes how many pages lack text.
+- PDF reading order is heuristic (ADR 0016); use "Show reading order" in the reader to spot mistakes.
 
 - The content script is ~580 kB because the mini player uses React; consider a vanilla mini player in M10 if injection time matters.
 - "Read page from here" before the first injection starts at the first visible block, not the exact right-click point.
@@ -69,6 +73,21 @@ Throwaway code under `spikes/` (excluded from build, lint and typecheck). Reprod
 `pnpm spikes:setup && pnpm spikes:build && pnpm spikes:run`; results land in `spikes/out/` (gitignored).
 
 ## Manual QA scripts
+
+### M9
+
+1. Open the side panel and choose **Open a PDF…**, then pick a two-column paper. The first page
+   appears quickly and a progress bar shows page analysis.
+2. Press Play: the word under the voice is inverted and the bar glides beneath it; reading crosses
+   from the left to the right column and on to the next page, skipping running headers, page
+   numbers and the references section.
+3. Click any word: reading jumps there. Scroll away: following pauses for 5 seconds.
+4. Open the right drawer, turn on **Show reading order** and check the numbers follow the columns.
+   Turn off **Skip references** and confirm they are read.
+5. Use the Pages and Outline tabs, the zoom menu and search (Enter finds the next match).
+6. Reload the tab: the document reopens from **Recent documents** and resumes where you stopped.
+7. Optional: enable **Open PDF links in Open Reader** in Options → Reading rules, then open a PDF link.
+   For a `file://` PDF, the reader explains how to allow file access.
 
 ### M8
 

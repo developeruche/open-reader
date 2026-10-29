@@ -7,15 +7,17 @@ import { expect } from './fixtures';
 
 export const FIXTURE_ORIGIN = 'https://fixtures.test';
 
-/** Serves tests/fixtures/web/* at https://fixtures.test/ (no network). */
+/** Serves tests/fixtures/web/* at https://fixtures.test/ and PDFs at /pdf/ (no network). */
 export async function serveFixtures(context: BrowserContext): Promise<void> {
   await context.route(`${FIXTURE_ORIGIN}/**`, (route) => {
     const name = new URL(route.request().url()).pathname.slice(1) || 'index.html';
+    const pdf = name.startsWith('pdf/');
     try {
       route.fulfill({
         status: 200,
-        contentType: 'text/html',
-        body: readFileSync(path.resolve('tests/fixtures/web', name)),
+        contentType: pdf ? 'application/pdf' : 'text/html',
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: readFileSync(path.resolve(pdf ? 'tests/fixtures' : 'tests/fixtures/web', name)),
       });
     } catch {
       route.fulfill({ status: 404, body: 'not found' });

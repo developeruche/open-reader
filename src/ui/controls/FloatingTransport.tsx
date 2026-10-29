@@ -3,7 +3,7 @@ import { IconButton, Slider } from '../components';
 import { formatTimeLeft } from '../format';
 import { PlayButton } from './PlayButton';
 import { SpeedControl } from './SpeedControl';
-import { VoiceControl } from './VoiceControl';
+import { VoiceControl, type VoiceOption } from './VoiceControl';
 
 export interface FloatingTransportProps {
   playing: boolean;
@@ -11,6 +11,7 @@ export interface FloatingTransportProps {
   total: number;
   rate: number;
   voice: string;
+  voices?: readonly VoiceOption[];
   secondsLeft: number;
   follow: boolean;
   onToggle(): void;
@@ -53,7 +54,7 @@ export function FloatingTransport(p: FloatingTransportProps) {
         {formatTimeLeft(p.secondsLeft)}
       </span>
       <SpeedControl rate={p.rate} onRateChange={p.onRate} tone="inverse" />
-      <VoiceControl voice={p.voice} onVoiceChange={p.onVoice} tone="inverse" />
+      <VoiceControl voice={p.voice} voices={p.voices} onVoiceChange={p.onVoice} tone="inverse" />
       <button
         type="button"
         aria-pressed={p.follow}

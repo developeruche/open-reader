@@ -20,6 +20,8 @@ export const SettingsSchema = z.object({
   onboarded: z.boolean().default(false),
   /** Hide and never use voices that need the network (§6.5). */
   strictOffline: z.boolean().default(true),
+  /** Open PDF links in the reader instead of Chrome's viewer (§8.1). */
+  interceptPdf: z.boolean().default(false),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 

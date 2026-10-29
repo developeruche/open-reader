@@ -3,7 +3,7 @@ import { highlightNames, type Variant } from './highlightCss';
 
 export class HighlightPainter {
   private variant: Variant = 'light';
-  sentence: Range | undefined;
+  sentence: Range[] = [];
   word: Range | undefined;
 
   setVariant(v: Variant): void {
@@ -13,8 +13,9 @@ export class HighlightPainter {
     this.apply();
   }
 
-  paint(sentence: Range | undefined, word: Range | undefined): void {
-    this.sentence = sentence;
+  /** A sentence may span pages (PDF), so it accepts several ranges. */
+  paint(sentence: Range | Range[] | undefined, word: Range | undefined): void {
+    this.sentence = sentence === undefined ? [] : Array.isArray(sentence) ? sentence : [sentence];
     this.word = word;
     this.apply();
   }
@@ -27,7 +28,7 @@ export class HighlightPainter {
 
   private apply(): void {
     const n = highlightNames(this.variant);
-    if (this.sentence) CSS.highlights.set(n.sentence, new Highlight(this.sentence));
+    if (this.sentence.length) CSS.highlights.set(n.sentence, new Highlight(...this.sentence));
     else CSS.highlights.delete(n.sentence);
     if (this.word) CSS.highlights.set(n.word, new Highlight(this.word));
     else CSS.highlights.delete(n.word);

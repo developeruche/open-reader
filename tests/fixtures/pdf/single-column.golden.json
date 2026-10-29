@@ -1,0 +1,10 @@
+{
+  "blocks": [
+    "Reading a partially signed transaction",
+    "A partially signed transaction is a container for a transaction that is not finished yet. Each wallet that touches it adds what it knows, and nobody has to trust anybody else with private keys.",
+    "The roles",
+    "The creator proposes the inputs and outputs. The updater adds previous outputs, scripts and derivation paths so that signers can check what they are about to approve.",
+    "A hardware wallet can show the real fee before it signs, because the container carries the full previous outputs. That closed an attack in which a malicious computer lied about the amounts."
+  ],
+  "skipped": []
+}

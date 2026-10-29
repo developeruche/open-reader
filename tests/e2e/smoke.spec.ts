@@ -4,6 +4,6 @@ test('loads the extension and opens the side panel page', async ({ context, exte
   expect(extensionId).toMatch(/^[a-p]{32}$/);
   const page = await context.newPage();
   await page.goto(`chrome-extension://${extensionId}/sidepanel.html`);
-  await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Reader' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Nothing is playing' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Read this page' })).toBeVisible();
 });

@@ -67,3 +67,10 @@ reader.html: HostRuntime (in-page) ──port `inpage-host`──▶ background 
 - `src/platform/`: `background.ts` (wiring), `offscreen.ts`, `ports.ts` (reconnecting ports),
   `session.ts` (storage.session), `library.ts` (IndexedDB library).
 - `src/engines/factory.ts`: creates engines in workers.
+
+## Web mode (M8)
+
+`src/web/`: `extract.ts` (Readability + live-DOM mapping), `registry.ts`, `textBuilder.ts`,
+`painter.ts` (CSS highlights), `cursor.ts`, `follow.ts`, `contrast.ts`, `highlightCss.ts`, and
+`contentApp.ts`, which ties them to the sync stream, keyboard, click-to-read, the mini player and SPA
+recovery. The side panel is `src/ui/shells/LiveSidePanel.tsx` with `src/ui/session/`.

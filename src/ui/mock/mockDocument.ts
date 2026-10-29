@@ -9,6 +9,8 @@ export interface MockBlock {
   type: 'heading' | 'paragraph' | 'listItem';
   level?: number;
   sentences: MockSentence[];
+  /** Skipped by reading rules: shown, but muted and not clickable. */
+  muted?: boolean;
 }
 export interface MockDocument {
   title: string;

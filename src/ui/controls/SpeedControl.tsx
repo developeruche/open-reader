@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { Button, Popover, Slider } from '../components';
 import { cn } from '../cn';
 import { formatRate } from '../format';
@@ -11,7 +12,19 @@ export interface SpeedControlProps {
 }
 
 /** The speed chip ("1.0×") opening a 0.5–4× slider with presets. */
-export function SpeedControl({ rate, onRateChange, tone = 'default' }: SpeedControlProps) {
+export function SpeedControl({ rate: remote, onRateChange, tone = 'default' }: SpeedControlProps) {
+  // The rate round-trips through the session; while the user is adjusting it, keep the local
+  // value so late echoes of earlier steps cannot pull the slider back.
+  const [rate, setRate] = useState(remote);
+  const touched = useRef(0);
+  useEffect(() => {
+    if (Date.now() - touched.current > 800) setRate(remote);
+  }, [remote]);
+  const change = (r: number) => {
+    touched.current = Date.now();
+    setRate(r);
+    onRateChange(r);
+  };
   return (
     <Popover
       label="Playback speed"
@@ -43,7 +56,7 @@ export function SpeedControl({ rate, onRateChange, tone = 'default' }: SpeedCont
         max={4}
         step={0.05}
         value={rate}
-        onValueChange={onRateChange}
+        onValueChange={change}
         valueText={(v) => `${formatRate(v).replace('×', '')} times`}
       />
       <div className="mt-4 flex flex-wrap gap-1.5">
@@ -53,7 +66,7 @@ export function SpeedControl({ rate, onRateChange, tone = 'default' }: SpeedCont
             size="sm"
             variant={p === rate ? 'primary' : 'secondary'}
             aria-pressed={p === rate}
-            onClick={() => onRateChange(p)}
+            onClick={() => change(p)}
             className="tabular"
           >
             {formatRate(p)}

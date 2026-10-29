@@ -10,7 +10,7 @@
 - [x] M5: Extension runtime, hosts and messaging
 - [x] M6: Model manager and the default engine (Kokoro)
 - [x] M7: Piper, system voices and the voice bake-off
-- [ ] M8: Web mode, end to end
+- [x] M8: Web mode, end to end
 - [ ] M9: Document mode (PDF), end to end
 - [ ] M10: Reliability, performance and diagnostics hardening
 - [ ] M11: Power features
@@ -44,6 +44,9 @@ Installed into `.claude/skills/` by copying from pinned commits after reading ev
 
 ## Known issues
 
+- The content script is ~580 kB because the mini player uses React; consider a vanilla mini player in M10 if injection time matters.
+- "Read page from here" before the first injection starts at the first visible block, not the exact right-click point.
+
 - ASR heard "Schnorr" (respelled "shnor") as "snore"; confirm by ear (ADR 0014).
 - The owner's own articles are not yet in `tests/fixtures/corpus/owner/`; the harness uses project-written passages.
 
@@ -66,6 +69,19 @@ Throwaway code under `spikes/` (excluded from build, lint and typecheck). Reprod
 `pnpm spikes:setup && pnpm spikes:build && pnpm spikes:run`; results land in `spikes/out/` (gitignored).
 
 ## Manual QA scripts
+
+### M8
+
+1. Open a long article (e.g. a Wikipedia page) and press Alt+Shift+O, then **Read this page** in
+   the side panel. The current sentence is tinted, the word is inverted and a thin bar glides under it.
+2. Scroll with the wheel: the page stops following for 5 seconds; the mini player shows
+   "Resume follow". Press it to jump back.
+3. Alt+click any word: reading jumps there. Select a phrase: a "Play from here" button appears.
+4. On the page: Space, J/K, Shift+J/K, − and =, F and Esc work while a session is active.
+5. Side panel: click a sentence in the Reader tab to jump; use the Outline tab; the footer says
+   "On-device · Kokoro · WebGPU".
+6. Try a dark-themed site: the highlight inverts to stay readable.
+7. Reload the page and read it again: it resumes where you left off.
 
 ### M7
 

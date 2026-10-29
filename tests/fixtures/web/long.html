@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8" /><title>A field guide to fee estimation</title>
+  <style>body{font:17px/1.7 Georgia,serif;max-width:720px;margin:0 auto;padding:24px}table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:4px 8px}</style></head>
+  <body>
+    <article>
+      <h1>A field guide to fee estimation</h1>
+      <p>Fees are a market. Every block has room for about four million weight units, and miners pick the transactions that pay the most per unit.</p>
+      <h2>What wallets look at</h2>
+      <ul>
+        <li>The current mempool and how full it is.</li>
+        <li>How fast fees moved over the last few blocks.</li>
+        <li>How long the user is willing to wait.</li>
+      </ul>
+      <p>Most wallets offer three choices. The fast option targets the next block, the normal option targets about an hour, and the slow option may take a day.</p>
+      <h2>A worked example</h2>
+      <table>
+        <tr><th>Priority</th><th>Rate</th><th>Cost</th></tr>
+        <tr><td>Fast</td><td>25 sat/vB</td><td>3,525 sats</td></tr>
+        <tr><td>Normal</td><td>12 sat/vB</td><td>1,692 sats</td></tr>
+      </table>
+      <p>The same transaction of 141 virtual bytes costs more than twice as much when you are in a hurry. Waiting a little is often the cheapest choice.</p>
+      <h2>Replacing a stuck transaction</h2>
+      <ol>
+        <li>Check that the original transaction signals replace by fee.</li>
+        <li>Create a new version that pays a higher rate.</li>
+        <li>Broadcast the new version and wait for confirmation.</li>
+      </ol>
+      <p>If the original did not signal replacement, the receiver can still speed it up by spending the unconfirmed output with a high fee. Miners then take both transactions together.</p>
+      <p>Fee estimation is never perfect. A good wallet explains its guess and lets you change it before you sign.</p>
+      <p>Over time the market settles into patterns. Weekends are often cheaper than weekdays, and quiet hours in one part of the world are busy in another.</p>
+      <p>Keeping an eye on these rhythms saves money without any special tools. A simple chart of recent blocks tells you most of what you need.</p>
+    </article>
+  </body>
+</html>

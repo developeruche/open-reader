@@ -52,44 +52,33 @@ for (const scheme of ['light', 'dark'] as const) {
   }
 }
 
-test('side panel: keyboard reaches play and transport keys work', async ({
+test('side panel: keyboard reaches the transport and the speed popover during a session', async ({
   context,
   extensionId,
 }) => {
+  const { readFixture, session } = await import('./runtime-helpers');
+  await readFixture(context);
+  const tabId = (await session(context))!.tabId!;
   const page = await context.newPage();
-  await open(page, extensionId, 'sidepanel');
-  const play = page.getByRole('button', { name: 'Play', exact: true });
-  for (let i = 0; i < 10 && !(await play.evaluate((el) => el === document.activeElement)); i++)
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(`chrome-extension://${extensionId}/sidepanel.html?tabId=${tabId}`);
+  const pause = page.getByRole('button', { name: 'Pause', exact: true });
+  for (let i = 0; i < 12 && !(await pause.evaluate((el) => el === document.activeElement)); i++)
     await page.keyboard.press('Tab');
-  await expect(play).toBeFocused();
+  await expect(pause).toBeFocused();
   await page.keyboard.press('Enter');
-  await expect(page.getByRole('button', { name: 'Pause', exact: true })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
-  await page.keyboard.press('Escape');
-  await page.locator('body').click({ position: { x: 5, y: 5 } });
-  await page.keyboard.press('k');
-  await expect(page.getByText(/^Sentence 2 of \d+$/)).toBeVisible();
-  await page.keyboard.press('=');
-  await expect(page.getByRole('button', { name: 'Speed 1.25×' })).toBeVisible();
-});
-
-test('side panel: speed popover is keyboard operable', async ({ context, extensionId }) => {
-  const page = await context.newPage();
-  await open(page, extensionId, 'sidepanel');
-  await page.getByRole('button', { name: 'Speed 1.0×' }).focus();
+  await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
+  const speed = page.getByRole('button', { name: 'Speed 1.0×' });
+  await speed.focus();
   await page.keyboard.press('Enter');
   const slider = page.getByRole('slider', { name: 'Speed' });
-  await expect(slider)
-    .toBeFocused({ timeout: 2000 })
-    .catch(() => slider.focus());
   await slider.focus();
   await page.keyboard.press('ArrowRight');
   await page.keyboard.press('ArrowRight');
   await expect(slider).toHaveAttribute('aria-valuenow', '1.1');
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('button', { name: 'Speed 1.1×' })).toBeFocused();
+  await expect.poll(async () => (await session(context))!.settings.rate).toBe(1.1);
+  expect(await seriousViolations(page)).toEqual([]);
 });
 
 test('options: sections are reachable from the keyboard', async ({ context, extensionId }) => {

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8" /><title>Partially signed transaction - Encyclopedia</title>
+  <style>body{font:15px/1.6 Georgia,serif;max-width:800px;margin:0 auto;padding:24px}sup{font-size:70%}</style></head>
+  <body>
+    <div id="toc"><b>Contents</b><ol><li>History</li><li>Format</li><li>References</li></ol></div>
+    <div id="content">
+      <h1>Partially signed transaction</h1>
+      <p>A partially signed transaction is a data structure that lets several parties build and sign a transaction together.<sup class="reference"><a href="#cite-1">[1]</a></sup> The format was proposed in 2017 and adopted by most wallets within a few years.<sup class="reference"><a href="#cite-2">[2]</a></sup></p>
+      <h2>History</h2>
+      <p>Before the format existed, each wallet used its own way to pass unsigned transactions around.<sup class="reference"><a href="#cite-3">[3]</a></sup> Hardware wallets in particular needed the previous outputs to show the fee.</p>
+      <h2>Format</h2>
+      <p>The structure is a set of key-value maps, one for the transaction, one per input and one per output. Unknown keys are kept, so newer fields survive older software.</p>
+      <h2>References</h2>
+      <ol class="references">
+        <li id="cite-1">Chow, A. Partially Signed Bitcoin Transaction Format. 2017.</li>
+        <li id="cite-2">Wallet survey, 2020.</li>
+        <li id="cite-3">Developer mailing list archive.</li>
+      </ol>
+    </div>
+  </body>
+</html>

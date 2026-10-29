@@ -281,7 +281,10 @@ describe('Orchestrator', () => {
     await h.orch.hostEvent('offscreen', { type: 'HELLO', host: 'offscreen', status: null });
     await h.orch.contentDoc(7, doc, 'https://x.test/a', undefined);
     const first = h.orch.session!.sessionId;
-    await h.orch.contentDoc(8, { ...doc, id: 'd2' }, 'https://x.test/b', 0);
+    await h.orch.contentDoc(8, { ...doc, id: 'd2' }, 'https://x.test/b', {
+      blockId: 'p',
+      offset: 0,
+    });
     expect(h.sent.offscreen.map((c) => c.type)).toEqual(['LOAD', 'UNLOAD', 'LOAD']);
     expect(h.sent.offscreen[1]).toEqual({ type: 'UNLOAD', sessionId: first });
     expect(h.orch.defaultSettings()).toEqual(DEFAULT_SESSION_SETTINGS);

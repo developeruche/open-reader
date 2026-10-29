@@ -1,6 +1,7 @@
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { buildBlock } from '@/core/document/build';
 import { memoryStore } from '@/core/util/kv';
 import { REGISTRY } from '@/engines/factory';
 import { Toaster, TooltipProvider } from '@/ui/components';
@@ -33,6 +34,12 @@ vi.mock('@/ui/models/useModels', () => ({
   }),
 }));
 vi.mock('@/runtime/models', () => ({ playSample: vi.fn(async () => undefined) }));
+let sent: unknown[] = [];
+let sessionState: Record<string, unknown> = {};
+vi.mock('@/ui/session/useSession', () => ({
+  useSession: () => ({ ...sessionState, send: (c: unknown) => sent.push(c) }),
+}));
+vi.mock('@/platform/tabs', () => ({ openOptions: vi.fn(), targetTabId: async () => 7 }));
 vi.mock('@/platform/settings', () => ({
   saveSettings: vi.fn(async () => ({})),
   loadSettings: vi.fn(async () => ({ strictOffline: true })),
@@ -46,7 +53,8 @@ vi.mock('@/platform/tts', () => ({
   }),
 }));
 
-const { SidePanelApp } = await import('@/ui/shells/SidePanelApp');
+const { LiveSidePanel } = await import('@/ui/shells/LiveSidePanel');
+const { docView } = await import('@/ui/session/docView');
 const { ReaderApp } = await import('@/ui/shells/ReaderApp');
 const { OptionsApp } = await import('@/ui/shells/OptionsApp');
 const { OnboardingApp } = await import('@/ui/shells/OnboardingApp');
@@ -62,38 +70,131 @@ const wrap = (ui: React.ReactNode) =>
 const appearance = () => createAppearanceStore(memoryStore());
 
 beforeEach(() => {
+  sent = [];
   location.hash = '';
   useMockPlayer.setState({ status: 'idle', sentence: 0, word: 0, rate: 1, follow: true });
   modelState = {};
   Object.values(models).forEach((f) => f.mockReset());
 });
 
-describe('SidePanelApp', () => {
-  it('plays, skips and switches tabs', async () => {
-    wrap(<SidePanelApp useAppearance={appearance()} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Play' }));
-    expect(useMockPlayer.getState().status).toBe('playing');
-    await userEvent.click(screen.getByRole('button', { name: 'Next sentence' }));
-    expect(useMockPlayer.getState().sentence).toBe(1);
-    await userEvent.click(screen.getByRole('button', { name: 'Previous sentence' }));
-    await userEvent.click(screen.getByRole('tab', { name: 'Outline' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Why hardware wallets like it' }));
-    expect(useMockPlayer.getState().sentence).toBeGreaterThan(5);
-    await userEvent.click(screen.getByRole('tab', { name: 'Settings' }));
-    await userEvent.click(screen.getByRole('switch', { name: 'Follow the voice' }));
-    expect(useMockPlayer.getState().follow).toBe(false);
-    act(() => useMockPlayer.getState().pause());
+describe('LiveSidePanel', () => {
+  it('offers to read the page when nothing is playing', async () => {
+    sessionState = {
+      session: null,
+      doc: null,
+      view: null,
+      live: { sentenceId: null, word: -1 },
+      tabId: 7,
+    };
+    wrap(<LiveSidePanel useAppearance={appearance()} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Read this page' }));
+    expect(sent).toContainEqual({ type: 'READ_TAB', tabId: 7 });
   });
 
-  it('opens the speed and voice popovers', async () => {
-    wrap(<SidePanelApp useAppearance={appearance()} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Speed 1.0×' }));
-    await userEvent.click(screen.getByRole('button', { name: '1.5×' }));
-    expect(useMockPlayer.getState().rate).toBe(1.5);
-    await userEvent.keyboard('{Escape}');
+  it('drives the session: transport, speed, outline, reader seek and keys', async () => {
+    const doc = {
+      id: 'd',
+      kind: 'web' as const,
+      title: 'How a PSBT moves',
+      lang: 'en',
+      blocks: [
+        buildBlock({ id: 'h', type: 'heading', level: 2, text: 'The roles' }),
+        buildBlock({ id: 'p', type: 'paragraph', text: 'One sentence here. Two sentences here.' }),
+        {
+          ...buildBlock({ id: 'r', type: 'reference', text: 'A reference.' }),
+          skip: 'reference' as const,
+        },
+      ],
+    };
+    const view = docView(doc);
+    sessionState = {
+      session: {
+        sessionId: 's',
+        docId: 'd',
+        title: doc.title,
+        host: 'offscreen',
+        url: 'https://ex.test/a',
+        state: 'playing',
+        cursor: { sentence: 1, part: 0, word: 0 },
+        settings: {
+          rate: 1,
+          voice: 'af_heart',
+          pacing: 'natural',
+          engineId: 'kokoro',
+          modelId: REGISTRY.models[0]!.id,
+          backend: 'webgpu',
+        },
+        sentenceCount: 3,
+        hostLost: false,
+        error: null,
+        updatedAt: 0,
+        engine: 'kokoro',
+        backend: 'webgpu',
+      },
+      doc,
+      view,
+      live: { sentenceId: 'p.0', word: 1 },
+      tabId: 7,
+    };
+    wrap(<LiveSidePanel useAppearance={appearance()} />);
+    expect(screen.getByText('On-device · Kokoro · WebGPU')).toBeTruthy();
+    expect(screen.getByText('ex.test')).toBeTruthy();
+    expect(document.querySelector('[data-current-word]')?.textContent).toBe('sentence');
+    await userEvent.click(screen.getByRole('button', { name: 'Pause' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Next sentence' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Previous sentence' }));
+    await userEvent.click(screen.getByText('Two sentences here.', { exact: false }));
+    expect(sent).toEqual(
+      expect.arrayContaining([
+        { type: 'TOGGLE' },
+        { type: 'NEXT_SENTENCE' },
+        { type: 'PREV_SENTENCE' },
+        { type: 'SEEK', sentence: 2 },
+      ]),
+    );
+    await userEvent.click(screen.getByRole('tab', { name: 'Outline' }));
+    await userEvent.click(screen.getByRole('button', { name: 'The roles' }));
+    expect(sent).toContainEqual({ type: 'SEEK', sentence: 0 });
+    await userEvent.click(screen.getByRole('tab', { name: 'Settings' }));
+    await userEvent.click(screen.getByRole('switch', { name: 'Follow the voice' }));
+    await userEvent.keyboard('k');
+    expect(sent).toContainEqual({ type: 'NEXT_SENTENCE' });
     await userEvent.click(screen.getByRole('button', { name: /Voice:/ }));
     await userEvent.click(screen.getByRole('radio', { name: /Emma/ }));
-    expect(useMockPlayer.getState().voice).toBe('bf_emma');
+    expect(sent).toContainEqual({ type: 'SET_VOICE', voice: 'bf_emma' });
+  });
+
+  it('shows engine errors and retries', async () => {
+    const doc = {
+      id: 'd',
+      kind: 'web' as const,
+      title: 'T',
+      lang: 'en',
+      blocks: [buildBlock({ id: 'p', type: 'paragraph', text: 'Hello there.' })],
+    };
+    sessionState = {
+      session: {
+        sessionId: 's',
+        docId: 'd',
+        title: 'T',
+        host: 'offscreen',
+        state: 'error',
+        cursor: { sentence: 0, part: 0, word: 0 },
+        settings: { rate: 1, voice: 'Samantha', pacing: 'natural', engineId: 'system' },
+        sentenceCount: 1,
+        hostLost: false,
+        error: 'The voice could not start.',
+        updatedAt: 0,
+      },
+      doc,
+      view: docView(doc),
+      live: { sentenceId: null, word: -1 },
+      tabId: 7,
+    };
+    wrap(<LiveSidePanel useAppearance={appearance()} />);
+    expect(screen.getByText('The voice could not start.')).toBeTruthy();
+    await userEvent.click(screen.getByRole('button', { name: 'Play' }));
+    expect(sent).toContainEqual({ type: 'RETRY' });
   });
 });
 

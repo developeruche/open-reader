@@ -7,6 +7,7 @@ import { chromeTts } from './tts';
 import { INSTALLED_KEY, type InstalledIndex } from '@/core/models/manager';
 import { localStore } from './kv';
 import { Orchestrator, type DebugEvent } from '@/runtime/orchestrator';
+import { HIGHLIGHT_CSS } from '@/web/highlightCss';
 import {
   DEFAULT_SESSION_SETTINGS,
   parseUiCommand,
@@ -30,7 +31,7 @@ export function startBackground(): void {
   const tts = chromeTts();
   const uiPorts = new Set<Browser.runtime.Port>();
   const contentPorts = new Map<number, Browser.runtime.Port>();
-  const pendingExtract = new Map<number, boolean>();
+  const pendingExtract = new Map<number, { fromSelection: boolean; fromHere: boolean }>();
 
   const broadcast = (u: UiUpdate) => {
     for (const p of uiPorts) p.postMessage(u);
@@ -45,12 +46,17 @@ export function startBackground(): void {
       send(tabId, u: ContentUpdate) {
         contentPorts.get(tabId)?.postMessage(u);
       },
-      async extract(tabId, fromSelection) {
+      async extract(tabId, fromSelection, fromHere = false) {
         const port = contentPorts.get(tabId);
         if (port)
-          return port.postMessage({ type: 'EXTRACT', fromSelection } satisfies ContentUpdate);
-        pendingExtract.set(tabId, fromSelection);
+          return port.postMessage({
+            type: 'EXTRACT',
+            fromSelection,
+            fromHere,
+          } satisfies ContentUpdate);
+        pendingExtract.set(tabId, { fromSelection, fromHere });
         try {
+          await browser.scripting.insertCSS({ target: { tabId }, css: HIGHLIGHT_CSS });
           await browser.scripting.executeScript({
             target: { tabId },
             files: ['/content-scripts/content.js'],
@@ -79,7 +85,13 @@ export function startBackground(): void {
           ? { engineId: 'kokoro', modelId: kokoro.modelId, voice: 'af_heart' }
           : { engineId: 'system', voice: '' };
       }
-      if (!voice) return { ...DEFAULT_SESSION_SETTINGS, rate: s.rate, pacing: s.pacing };
+      if (!voice)
+        return {
+          ...DEFAULT_SESSION_SETTINGS,
+          rate: s.rate,
+          pacing: s.pacing,
+          skipRules: s.skipRules,
+        };
       return {
         rate: s.rate,
         pacing: s.pacing,
@@ -87,6 +99,7 @@ export function startBackground(): void {
         modelId: voice.modelId,
         backend: voice.backend,
         voice: voice.voice,
+        skipRules: s.skipRules,
       };
     },
     async activeTabId() {
@@ -131,11 +144,11 @@ export function startBackground(): void {
         port.onMessage.addListener((m: unknown) => {
           const msg = m as UiMessage;
           if (msg.type === 'HELLO')
-            void orch
-              .whenRestored()
-              .then(() =>
-                port.postMessage({ type: 'SESSION', session: orch.session } satisfies UiUpdate),
-              );
+            void orch.whenRestored().then(async () => {
+              port.postMessage({ type: 'SESSION', session: orch.session } satisfies UiUpdate);
+              const doc = await orch.currentDoc();
+              if (doc) port.postMessage({ type: 'DOC', doc } satisfies UiUpdate);
+            });
           if (msg.type === 'COMMAND') {
             const cmd = parseUiCommand(msg.command);
             if (cmd) void orch.command(cmd);
@@ -152,13 +165,14 @@ export function startBackground(): void {
         );
         port.onMessage.addListener((m: unknown) => {
           const msg = m as ContentMessage;
-          if (msg.type === 'DOC')
-            void orch.contentDoc(
-              tabId,
-              msg.doc,
-              msg.url,
-              msg.startSentence >= 0 ? msg.startSentence : undefined,
-            );
+          if (msg.type === 'DOC') void orch.contentDoc(tabId, msg.doc, msg.url, msg.startAt);
+          if (msg.type === 'SEEK') void orch.contentSeek(tabId, msg.docId, msg.at);
+          if (msg.type === 'COMMAND') {
+            const cmd = parseUiCommand(msg.command);
+            if (cmd) void orch.command(cmd);
+          }
+          if (msg.type === 'NOTE')
+            broadcast({ type: 'NOTICE', notice: { kind: 'info', message: msg.message } });
           if (msg.type === 'NO_CONTENT')
             broadcast({
               type: 'NOTICE',
@@ -168,7 +182,7 @@ export function startBackground(): void {
         const pending = pendingExtract.get(tabId);
         if (pending !== undefined) {
           pendingExtract.delete(tabId);
-          port.postMessage({ type: 'EXTRACT', fromSelection: pending } satisfies ContentUpdate);
+          port.postMessage({ type: 'EXTRACT', ...pending } satisfies ContentUpdate);
         }
         break;
       }
@@ -211,10 +225,9 @@ export function startBackground(): void {
     if (tabId === undefined) return;
     // A context-menu click is a user gesture, so the side panel may open (Chrome 116+).
     void browser.sidePanel.open({ tabId }).catch(() => undefined);
-    void orch.command({
-      type: 'READ_TAB',
-      tabId,
+    void orch.readTab(tabId, {
       fromSelection: info.menuItemId === MENU.selection,
+      fromHere: info.menuItemId === MENU.page,
     });
   });
 

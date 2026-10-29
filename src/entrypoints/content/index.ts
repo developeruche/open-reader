@@ -1,83 +1,36 @@
 // Injected on demand by the background (chrome.scripting), never declared statically.
-// M5: minimal extraction (headings, paragraphs, list items). M8 replaces it with Readability and
-// live-DOM mapping, highlights, the cursor and follow-scroll.
-import { buildBlock } from '@/core/document/build';
-import type { Block, BlockType, ReadingDocument } from '@/core/document/model';
-import { sha256Hex } from '@/core/util/sha256';
 import { connectWithRetry } from '@/platform/ports';
 import { PORT, type ContentMessage, type ContentUpdate } from '@/runtime/protocol';
-
-const TYPES: Record<string, BlockType> = {
-  P: 'paragraph',
-  LI: 'listItem',
-  BLOCKQUOTE: 'quote',
-  PRE: 'code',
-  FIGCAPTION: 'caption',
-};
-
-function extract(fromSelection: boolean): ReadingDocument | null {
-  const url = location.href.split('#')[0] ?? location.href;
-  const selection = fromSelection ? (getSelection()?.toString().trim() ?? '') : '';
-  let blocks: Block[];
-  if (selection) {
-    blocks = selection
-      .split(/\n\s*\n/)
-      .map((t, i) =>
-        buildBlock({ id: `s${i}`, type: 'paragraph', text: t.replace(/\s+/g, ' ').trim() }),
-      )
-      .filter((b) => b.text);
-  } else {
-    const els = [
-      ...document.body.querySelectorAll<HTMLElement>(
-        'h1,h2,h3,h4,h5,h6,p,li,blockquote,pre,figcaption',
-      ),
-    ].filter(
-      (el) =>
-        !el.closest('nav,header,footer,aside,[hidden],[aria-hidden=true]') &&
-        !el.parentElement?.closest('p,li,blockquote,pre,figcaption'),
-    );
-    blocks = els
-      .map((el, i) => {
-        const h = /^H([1-6])$/.exec(el.tagName);
-        const text = (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
-        return buildBlock({
-          id: `b${i}`,
-          type: h ? 'heading' : (TYPES[el.tagName] ?? 'paragraph'),
-          level: h ? Number(h[1]) : undefined,
-          text,
-        });
-      })
-      .filter((b) => b.text);
-  }
-  if (!blocks.length) return null;
-  return {
-    id: sha256Hex(selection ? `${url}#selection:${sha256Hex(selection)}` : url),
-    kind: 'web',
-    title: document.title,
-    lang: 'en',
-    blocks,
-  };
-}
+import { ContentApp } from '@/web/contentApp';
 
 export default defineContentScript({
   matches: ['<all_urls>'],
   registration: 'runtime',
   main() {
-    const g = globalThis as { __openReaderContent?: boolean };
+    const g = globalThis as { __openReaderContent?: ContentApp };
     if (g.__openReaderContent) return;
-    g.__openReaderContent = true;
     const port = connectWithRetry<ContentUpdate, ContentMessage>({
       name: PORT.content,
-      onMessage(msg) {
-        if (msg.type !== 'EXTRACT') return;
-        const doc = extract(msg.fromSelection);
-        const url = location.href;
-        port.post(
-          doc
-            ? { type: 'DOC', doc, url, startSentence: msg.fromSelection ? 0 : -1 }
-            : { type: 'NO_CONTENT', url },
-        );
-      },
+      onMessage: (msg) => app.handle(msg),
     });
+    const app = new ContentApp((m) => port.post(m));
+    g.__openReaderContent = app;
+    // Test builds expose the current highlights to Playwright through a DOM attribute.
+    if (import.meta.env.MODE === 'test') {
+      setInterval(() => {
+        const word = CSS.highlights.get('or-word') ?? CSS.highlights.get('or-word-dark');
+        const sentence =
+          CSS.highlights.get('or-sentence') ?? CSS.highlights.get('or-sentence-dark');
+        const w = word ? [...word][0] : undefined;
+        const s = sentence ? [...sentence][0] : undefined;
+        document.documentElement.dataset.orWord = w instanceof Range ? w.toString() : '';
+        document.documentElement.dataset.orSentence = s instanceof Range ? s.toString() : '';
+        document.documentElement.dataset.orVariant =
+          CSS.highlights.has('or-word-dark') || CSS.highlights.has('or-sentence-dark')
+            ? 'dark'
+            : 'light';
+        document.documentElement.dataset.orFollow = app.follow.suspended ? 'suspended' : 'on';
+      }, 50);
+    }
   },
 });

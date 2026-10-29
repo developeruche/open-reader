@@ -26,6 +26,7 @@ export interface HostRuntimeDeps {
 export class HostRuntime {
   player: Player | undefined;
   private activeBackend: HostRuntimeDeps['backend'];
+  private engineLabel: { engine: string; backend: string } | undefined;
   private sessionId: string | undefined;
   private doc: ReadingDocument | undefined;
 
@@ -50,6 +51,8 @@ export class HostRuntime {
       sentenceCount: p.nav.length,
       error: s.context.error?.message ?? null,
       audible: this.activeBackend.audibleCount?.() ?? (p.state === 'playing' ? 1 : 0),
+      engine: this.engineLabel?.engine,
+      backend: this.engineLabel?.backend,
     };
   }
 
@@ -105,6 +108,10 @@ export class HostRuntime {
       return;
     }
     const { engine, model } = opened;
+    this.engineLabel = {
+      engine: engine.id,
+      backend: (opened as { backend?: string }).backend ?? '',
+    };
     // A newer LOAD arrived while the engine was starting: it wins.
     if (token !== this.loadToken) return;
     this.sessionId = cmd.sessionId;
@@ -119,7 +126,12 @@ export class HostRuntime {
       backend: this.activeBackend,
       sessionId,
       cache: this.deps.cache,
-      settings: { rate: cmd.settings.rate, voice: cmd.settings.voice, pacing: cmd.settings.pacing },
+      settings: {
+        rate: cmd.settings.rate,
+        voice: cmd.settings.voice,
+        pacing: cmd.settings.pacing,
+        ...(cmd.settings.skipRules ? { skipRules: cmd.settings.skipRules } : {}),
+      },
       start: cmd.start,
       concurrency: engine.caps.backends.includes('webgpu') ? 1 : 2,
       onSync: (event) => this.deps.emit({ type: 'SYNC', event }),

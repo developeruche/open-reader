@@ -8,6 +8,7 @@ import type { Cursor, PlayerEvent, PlayerStateValue } from '@/core/player/machin
 import type { PlayerNotice } from '@/core/player/player';
 import type { SyncEvent } from '@/core/player/sync';
 import type { PacingPreset } from '@/core/text/pacing';
+import type { SkipRules } from '@/core/text/skip';
 import type { TtsEvent, TtsSpeakOptions } from '@/engines/system/tts';
 
 export const PORT = {
@@ -27,6 +28,7 @@ export interface SessionSettings {
   /** Installed model for render engines (from the registry). */
   modelId?: string;
   backend?: 'webgpu' | 'wasm';
+  skipRules?: SkipRules;
 }
 
 export const DEFAULT_SESSION_SETTINGS: SessionSettings = {
@@ -52,6 +54,8 @@ export interface SessionInfo {
   hostLost: boolean;
   error: string | null;
   updatedAt: number;
+  engine?: string;
+  backend?: string;
 }
 
 // ── background → engine host ───────────────────────────────────────────────
@@ -80,6 +84,9 @@ export interface HostStatus {
   error: string | null;
   /** Segments audible in this host right now (diagnostics; must never exceed 1). */
   audible: number;
+  /** Engine and backend actually running, for the status line ("Kokoro · WebGPU"). */
+  engine?: string;
+  backend?: string;
 }
 
 export type HostEvent =
@@ -141,13 +148,39 @@ export type UiMessage = { type: 'HELLO'; tabId?: number } | { type: 'COMMAND'; c
 
 export type UiUpdate =
   | { type: 'SESSION'; session: SessionInfo | null }
+  /** The document being read (reader view and outline). */
+  | { type: 'DOC'; doc: ReadingDocument }
   | { type: 'SYNC'; event: SyncEvent }
   | { type: 'NOTICE'; notice: PlayerNotice };
 
 // ── content script ↔ background ────────────────────────────────────────────
 export type ContentMessage =
-  | { type: 'DOC'; doc: ReadingDocument; url: string; startSentence: number }
-  | { type: 'NO_CONTENT'; url: string };
+  /** Without `startAt`, resume where the reader left off. */
+  | { type: 'DOC'; doc: ReadingDocument; url: string; startAt?: TextPoint }
+  | { type: 'NO_CONTENT'; url: string }
+  /** Keyboard shortcuts and the mini player on the page. */
+  | { type: 'COMMAND'; command: UiCommand }
+  /** Click-to-read inside the document being read. */
+  | { type: 'SEEK'; docId: string; at: TextPoint }
+  /** The page changed under us and highlights moved to the side panel only. */
+  | { type: 'NOTE'; message: string };
+
+/** A position in a block's display text (sentence numbers depend on reading rules, so the
+ *  background resolves them). */
+export interface TextPoint {
+  blockId: string;
+  offset: number;
+}
+
+export interface ContentSession {
+  /** True when this tab's page is the one being read. */
+  active: boolean;
+  docId: string | null;
+  state: PlayerStateValue | null;
+  rate: number;
+}
 
 export type ContentUpdate =
-  { type: 'SYNC'; event: SyncEvent } | { type: 'EXTRACT'; fromSelection: boolean };
+  | { type: 'SYNC'; event: SyncEvent }
+  | { type: 'EXTRACT'; fromSelection: boolean; fromHere?: boolean }
+  | { type: 'SESSION'; session: ContentSession };

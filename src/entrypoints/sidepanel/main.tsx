@@ -1,4 +1,4 @@
 import { mount } from '@/ui/mount';
-import { SidePanelApp } from '@/ui/shells/SidePanelApp';
+import { LiveSidePanel } from '@/ui/shells/LiveSidePanel';
 
-mount((useAppearance) => <SidePanelApp useAppearance={useAppearance} />);
+mount((useAppearance) => <LiveSidePanel useAppearance={useAppearance} />);

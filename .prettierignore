@@ -13,3 +13,4 @@ assets/g2p
 src/engines/kokoro/headtts
 models/registry.json
 quality/.pytest_cache
+tests/fixtures/web

@@ -69,6 +69,12 @@ export function ReadingView({
       {blocks.map((b) => {
         const content = b.sentences.map((s) => {
           const i = index++;
+          if (b.muted)
+            return (
+              <span key={s.id} className="text-muted">
+                {s.text}{' '}
+              </span>
+            );
           const isCurrent = i === sentence;
           const w = isCurrent ? s.words[word] : undefined;
           return (

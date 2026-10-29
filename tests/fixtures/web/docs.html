@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8" /><title>Signing a PSBT with the CLI</title>
+  <style>body{font:16px/1.6 system-ui;max-width:760px;margin:0 auto;padding:24px}nav{border-bottom:1px solid #ddd}pre{background:#f4f4f4;padding:12px}</style></head>
+  <body>
+    <header><nav><a href="/">Docs home</a> · <a href="/api">API</a> · <a href="/search">Search</a></nav></header>
+    <aside class="sidebar"><ul><li><a href="#a">Getting started</a></li><li><a href="#b">Signing</a></li></ul></aside>
+    <main>
+      <article>
+        <h1>Signing a PSBT with the command line</h1>
+        <p>This guide shows how to sign a partially signed transaction with <code>bitcoin-cli</code>. You need a wallet that holds the keys for at least one input.</p>
+        <h2>Process the PSBT</h2>
+        <p>Call <code>walletProcessPsbt</code> with the base64 string. The wallet fills in what it knows and signs every input it can.</p>
+        <pre><code>bitcoin-cli -rpcwallet=cold walletprocesspsbt "cHNidP8BAH0CAAAAAb..."</code></pre>
+        <p>The result contains the updated PSBT and a flag that says whether it is complete.</p>
+        <h2>Finalize and broadcast</h2>
+        <p>When every signer is done, finalize the PSBT and extract the raw transaction. Then broadcast it with <code>sendrawtransaction</code>.</p>
+      </article>
+    </main>
+    <footer>Edit this page on GitHub. Licensed under MIT.</footer>
+  </body>
+</html>

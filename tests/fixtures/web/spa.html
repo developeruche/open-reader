@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8" /><title>Live notes</title>
+  <style>body{font:17px/1.7 system-ui;max-width:700px;margin:0 auto;padding:24px}</style></head>
+  <body>
+    <div id="app"></div>
+    <script>
+      const paragraphs = [
+        'This page is rendered by a small script, like a single page app.',
+        'Every few seconds the framework throws the article away and renders it again.',
+        'The words stay the same, but every text node is new.',
+        'A reader that keeps references to the old nodes would lose its place.',
+        'Open Reader finds the same text again and keeps highlighting it.',
+      ];
+      function render() {
+        const app = document.getElementById('app');
+        app.innerHTML = '';
+        const article = document.createElement('article');
+        const h = document.createElement('h1');
+        h.textContent = 'Live notes';
+        article.append(h);
+        for (const t of paragraphs) {
+          const p = document.createElement('p');
+          p.textContent = t;
+          article.append(p);
+        }
+        app.append(article);
+      }
+      render();
+      window.rerender = render;
+    </script>
+  </body>
+</html>

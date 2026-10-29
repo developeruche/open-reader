@@ -3,14 +3,27 @@ import { Popover } from '../components';
 import { cn } from '../cn';
 import { MOCK_VOICES } from '../mock/mockDocument';
 
+export interface VoiceOption {
+  id: string;
+  name: string;
+  detail: string;
+}
+
 export interface VoiceControlProps {
   voice: string;
   onVoiceChange(voice: string): void;
   tone?: 'default' | 'inverse';
+  voices?: readonly VoiceOption[];
 }
 
-export function VoiceControl({ voice, onVoiceChange, tone = 'default' }: VoiceControlProps) {
-  const current = MOCK_VOICES.find((v) => v.id === voice) ?? MOCK_VOICES[0];
+export function VoiceControl({
+  voice,
+  onVoiceChange,
+  tone = 'default',
+  voices = MOCK_VOICES,
+}: VoiceControlProps) {
+  const current = voices.find((v) => v.id === voice) ??
+    voices[0] ?? { id: voice, name: voice || 'Voice', detail: '' };
   return (
     <Popover
       label="Voice"
@@ -34,7 +47,7 @@ export function VoiceControl({ voice, onVoiceChange, tone = 'default' }: VoiceCo
       }
     >
       <div role="radiogroup" aria-label="Voice">
-        {MOCK_VOICES.map((v) => (
+        {voices.map((v) => (
           <button
             key={v.id}
             type="button"

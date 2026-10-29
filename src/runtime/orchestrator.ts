@@ -5,6 +5,7 @@
 import type { ReadingDocument, ReadingPosition } from '@/core/document/model';
 import type { PlayerEvent } from '@/core/player/machine';
 import { Navigator } from '@/core/document/positions';
+import { applySkipRules, DEFAULT_SKIP_RULES } from '@/core/text/skip';
 import type {
   ContentUpdate,
   HostCommand,
@@ -13,6 +14,7 @@ import type {
   HostStatus,
   SessionInfo,
   SessionSettings,
+  TextPoint,
   UiCommand,
   UiUpdate,
 } from './protocol';
@@ -44,7 +46,7 @@ export interface OrchestratorDeps {
   ui: { broadcast(u: UiUpdate): void };
   content: {
     send(tabId: number, u: ContentUpdate): void;
-    extract(tabId: number, fromSelection: boolean): Promise<void>;
+    extract(tabId: number, fromSelection: boolean, fromHere?: boolean): Promise<void>;
   };
   settings(): Promise<SessionSettings>;
   activeTabId(): Promise<number | undefined>;
@@ -191,6 +193,8 @@ export class Orchestrator {
         sentenceCount: status.sentenceCount,
         error: status.error,
         hostLost: false,
+        engine: status.engine,
+        backend: status.backend,
       });
     }
   }
@@ -261,6 +265,13 @@ export class Orchestrator {
   /** PLAY arrived while the host was gone: play as soon as the recreated host has loaded. */
   private autoplayNext = false;
 
+  /** Context menu entries: read the selection, or the page from where it was right-clicked. */
+  async readTab(tabId: number, o: { fromSelection: boolean; fromHere: boolean }): Promise<void> {
+    await this.restored;
+    this.deps.debug?.({ kind: 'command', command: 'READ_TAB', at: this.deps.now() });
+    await this.deps.content.extract(tabId, o.fromSelection, o.fromHere);
+  }
+
   /** chrome.commands (§4.5): toggle-play, next-sentence, prev-sentence. */
   async keyboardCommand(name: string): Promise<void> {
     const map: Record<string, UiCommand> = {
@@ -277,15 +288,22 @@ export class Orchestrator {
   /** A content script extracted a document: start (or resume) a web-mode session. */
   async contentDoc(
     tabId: number,
-    doc: ReadingDocument,
+    raw: ReadingDocument,
     url: string,
-    startSentence: number | undefined,
+    startAt?: TextPoint,
   ): Promise<void> {
     await this.restored;
     const settings = await this.deps.settings();
-    let start = startSentence ?? 0;
+    const rules = settings.skipRules ?? DEFAULT_SKIP_RULES;
+    // Reading rules decide which blocks are spoken, and so the sentence numbering.
+    const doc: ReadingDocument = { ...raw, blocks: applySkipRules(raw.blocks, rules) };
+    const nav = new Navigator(doc, { announceSkippedCode: rules.announceSkippedCode });
+    let start = 0;
     let word = 0;
-    if (startSentence === undefined) {
+    if (startAt) {
+      start = nav.sentenceAtOffset(startAt.blockId, startAt.offset) ?? 0;
+      word = nav.wordAtOffset(start, startAt.offset);
+    } else {
       const saved = await this.deps.library.getPosition(doc.id);
       if (saved) {
         const r = new Navigator(doc).resolve(saved);
@@ -296,7 +314,7 @@ export class Orchestrator {
     const previous = this.session;
     if (previous && previous.host === 'offscreen')
       this.sendTo('offscreen', { type: 'UNLOAD', sessionId: previous.sessionId });
-    const nav = new Navigator(doc);
+
     const session: SessionInfo = {
       sessionId: this.deps.newId(),
       docId: doc.id,
@@ -313,9 +331,12 @@ export class Orchestrator {
       updatedAt: this.deps.now(),
     };
     await this.deps.store.saveDoc(doc);
+    const previousTab = this.session?.tabId;
     this.session = session;
     await this.deps.store.saveSession(session);
     this.deps.ui.broadcast({ type: 'SESSION', session });
+    this.deps.ui.broadcast({ type: 'DOC', doc });
+    this.notifyContent(previousTab);
     this.sendTo('offscreen', {
       type: 'LOAD',
       sessionId: session.sessionId,
@@ -329,9 +350,52 @@ export class Orchestrator {
 
   private async updateSession(patch: Partial<SessionInfo>): Promise<void> {
     if (!this.session) return;
+    const before = this.session;
     this.session = { ...this.session, ...patch, updatedAt: this.deps.now() };
     await this.deps.store.saveSession(this.session);
     this.deps.ui.broadcast({ type: 'SESSION', session: this.session });
+    if (before.state !== this.session.state || before.settings.rate !== this.session.settings.rate)
+      this.notifyContent();
+  }
+
+  /** Tells the session's tab what is playing (mini player, keyboard shortcuts). */
+  private notifyContent(previousTab?: number): void {
+    const s = this.session;
+    if (previousTab !== undefined && previousTab !== s?.tabId) {
+      this.deps.content.send(previousTab, {
+        type: 'SESSION',
+        session: { active: false, docId: null, state: null, rate: 1 },
+      });
+    }
+    if (s?.tabId !== undefined) {
+      this.deps.content.send(s.tabId, {
+        type: 'SESSION',
+        session: { active: true, docId: s.docId, state: s.state, rate: s.settings.rate },
+      });
+    }
+  }
+
+  /** The document of the current session, for the side panel's reader view. */
+  async currentDoc(): Promise<ReadingDocument | undefined> {
+    await this.restored;
+    return this.session ? this.deps.store.loadDoc(this.session.docId) : undefined;
+  }
+
+  /** Click-to-read from the page: seek within the session, or start reading this document there. */
+  async contentSeek(tabId: number, docId: string, at: TextPoint): Promise<boolean> {
+    await this.restored;
+    const s = this.session;
+    if (!s || s.docId !== docId || s.tabId !== tabId) return false;
+    const doc = await this.deps.store.loadDoc(docId);
+    if (!doc) return false;
+    const nav = new Navigator(doc, {
+      announceSkippedCode: (s.settings.skipRules ?? DEFAULT_SKIP_RULES).announceSkippedCode,
+    });
+    const sentence = nav.sentenceAtOffset(at.blockId, at.offset);
+    if (sentence === undefined) return false;
+    await this.command({ type: 'SEEK', sentence, word: nav.wordAtOffset(sentence, at.offset) });
+    if (s.state !== 'playing') await this.command({ type: 'PLAY' });
+    return true;
   }
 
   defaultSettings(): SessionSettings {

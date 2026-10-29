@@ -29,3 +29,25 @@ See PLAN.md §4 for the target design. This document is filled in as milestones 
 Block.text ──segment──▶ Sentence ──normalize──▶ spoken + OffsetMap ──split──▶ SpokenSegment[]
                                                      ▲ engine word timings use spoken offsets
 ```
+
+## Audio and player (M4)
+
+```text
+Navigator ─▶ Player.segmentsFor() ─▶ PrefetchScheduler ─▶ engine.synthesize (worker via comlink)
+                 ▲                         │   ▲ SynthesisCache (IndexedDB `audio`, LRU)
+   playerMachine │ (XState: idle/preparing/buffering/playing/paused/seeking/retrying/error/ended)
+                 │                         ▼
+                 └──── PlaybackBackend ◀─ postProcess (trim −40 dBFS/30 ms, −20 dBFS RMS, pause)
+                          │ started/ended/error
+                          ▼
+               SyncEvent stream (SEGMENT_STARTED, PAUSED, RESUMED, RATE_CHANGED, DRIFT…)
+                          ▼
+               ClockFollower in each visible context (rAF-driven cursor)
+```
+
+- `src/core/audio`: WAV, DSP, timing shift/estimation, `postProcess`.
+- `src/core/player`: `machine.ts`, `player.ts`, `scheduler.ts`, `cache.ts`, `sync.ts`, `backend.ts`.
+- `src/core/tts`: engine interfaces and the zod registry schema.
+- `src/engines/test`: the deterministic TestEngine; `src/engines/rpc.ts`: worker RPC;
+  `src/engines/playback/rendered.ts`: dual-`HTMLAudioElement` backend.
+- `src/platform/audioCache.ts`: IndexedDB cache (`open-reader` db).

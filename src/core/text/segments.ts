@@ -121,16 +121,18 @@ export function buildSegments(ctx: SegmentContext): SpokenSegment[] {
   }
   if (spoken.trim() === '') return [];
 
-  const max = ctx.fastStart
-    ? Math.min(ctx.maxChars ?? Infinity, FAST_START_CHARS)
-    : (ctx.maxChars ?? Infinity);
-  let cuts = Number.isFinite(max) ? splitPoints(spoken, max) : [];
-  // Fast start only splits once; the remainder obeys the engine limit.
-  if (ctx.fastStart && cuts.length) {
-    const first = cuts[0] ?? 0;
-    const rest = splitPoints(spoken.slice(first).trimStart(), ctx.maxChars ?? Infinity);
-    const offset = spoken.length - spoken.slice(first).trimStart().length;
-    cuts = [first, ...rest.map((c) => c + offset)];
+  const maxChars = ctx.maxChars ?? Infinity;
+  let cuts = Number.isFinite(maxChars) ? splitPoints(spoken, maxChars) : [];
+  // Fast start: split a long first sentence at its first clause boundary (§5.2.6).
+  if (ctx.fastStart && spoken.length > FAST_START_CHARS) {
+    const first = clauseBoundaries(spoken).find(
+      (c) => c >= MIN_PART && c <= Math.min(maxChars, FAST_START_CHARS),
+    );
+    const cut = first ?? splitPoints(spoken, Math.min(maxChars, FAST_START_CHARS))[0];
+    if (cut !== undefined) {
+      const restStart = cut + (spoken.slice(cut).length - spoken.slice(cut).trimStart().length);
+      cuts = [cut, ...splitPoints(spoken.slice(restStart), maxChars).map((c) => c + restStart)];
+    }
   }
   const bounds = [0, ...cuts, spoken.length];
   const parts: { s: number; e: number }[] = [];

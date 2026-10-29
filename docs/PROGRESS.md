@@ -6,7 +6,7 @@
 - [x] M1: Feasibility spikes and ADRs
 - [x] M2: Design system and app shells
 - [x] M3: Document model and text pipeline
-- [ ] M4: Audio pipeline and player core
+- [x] M4: Audio pipeline and player core
 - [ ] M5: Extension runtime, hosts and messaging
 - [ ] M6: Model manager and the default engine (Kokoro)
 - [ ] M7: Piper, system voices and the voice bake-off
@@ -43,6 +43,8 @@ Installed into `.claude/skills/` by copying from pinned commits after reading ev
 - Playwright Chromium (headless shell) 156.
 
 ## Known issues
+
+- Speed above 2× (model speed 1.25 + slower playback) still needs the listening test planned for M7.
 
 - Reader view renders every block; for very long pages consider `content-visibility: auto` or
   virtualization in M8 after measuring (Web Interface Guidelines: lists > 50 items).

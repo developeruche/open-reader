@@ -2,6 +2,7 @@ import { browser, type Browser } from 'wxt/browser';
 import { IdbLibrary } from './library';
 import { closeOffscreen, ensureOffscreen, offscreenExists } from './offscreen';
 import { ChromeSessionStore } from './session';
+import { loadSettings } from './settings';
 import { Orchestrator, type DebugEvent } from '@/runtime/orchestrator';
 import {
   DEFAULT_SESSION_SETTINGS,
@@ -61,7 +62,20 @@ export function startBackground(): void {
         }
       },
     },
-    settings: async () => DEFAULT_SESSION_SETTINGS,
+    async settings() {
+      const s = await loadSettings();
+      // Test builds read with the deterministic TestEngine unless a test chose a voice.
+      const voice = s.voice ?? (TEST ? null : { engineId: 'kokoro' as const, voice: 'af_heart' });
+      if (!voice) return { ...DEFAULT_SESSION_SETTINGS, rate: s.rate, pacing: s.pacing };
+      return {
+        rate: s.rate,
+        pacing: s.pacing,
+        engineId: voice.engineId,
+        modelId: voice.modelId,
+        backend: voice.backend,
+        voice: voice.voice,
+      };
+    },
     async activeTabId() {
       const [tab] = await browser.tabs.query({ active: true, lastFocusedWindow: true });
       return tab?.id;
@@ -138,7 +152,9 @@ export function startBackground(): void {
 
   browser.commands.onCommand.addListener((name) => void orch.keyboardCommand(name));
 
-  browser.runtime.onInstalled.addListener(() => {
+  browser.runtime.onInstalled.addListener((details) => {
+    if (details.reason === 'install' && !TEST)
+      void browser.tabs.create({ url: browser.runtime.getURL('/onboarding.html') });
     browser.contextMenus.removeAll(() => {
       browser.contextMenus.create({
         id: MENU.selection,

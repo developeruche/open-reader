@@ -8,7 +8,7 @@
 - [x] M3: Document model and text pipeline
 - [x] M4: Audio pipeline and player core
 - [x] M5: Extension runtime, hosts and messaging
-- [ ] M6: Model manager and the default engine (Kokoro)
+- [x] M6: Model manager and the default engine (Kokoro)
 - [ ] M7: Piper, system voices and the voice bake-off
 - [ ] M8: Web mode, end to end
 - [ ] M9: Document mode (PDF), end to end
@@ -44,6 +44,11 @@ Installed into `.claude/skills/` by copying from pinned commits after reading ev
 
 ## Known issues
 
+- HeadTTS's G2P reads a standalone spelled letter "A" (in acronyms such as "A P I") as "uh". Most
+  acronyms are unaffected; revisit with the M7 quality harness.
+- The runtime "voice is too slow" suggestion (§6.4.4) has its monitor (`RtfMonitor`) but is wired
+  into the player in M10.
+
 - Speed above 2× (model speed 1.25 + slower playback) still needs the listening test planned for M7.
 
 - Reader view renders every block; for very long pages consider `content-visibility: auto` or
@@ -58,6 +63,19 @@ Throwaway code under `spikes/` (excluded from build, lint and typecheck). Reprod
 `pnpm spikes:setup && pnpm spikes:build && pnpm spikes:run`; results land in `spikes/out/` (gitignored).
 
 ## Manual QA scripts
+
+### M6
+
+1. `pnpm build`, remove and re-add the unpacked extension: onboarding opens.
+2. Get started → Download: watch the progress (326 MB with WebGPU, 92 MB without); try Pause and
+   Resume. Continue unlocks when it says "Downloaded and verified".
+3. Run the check: it shows something like "Kokoro · WebGPU · 9× real time".
+4. Voice: press Sample on each voice; pick one.
+5. Open an article, right-click → Read page from here: you now hear Kokoro (the side panel UI is
+   still mock data until M8).
+6. Options → Voices & models: Repair and Remove work; Remove then Play shows an error that points
+   back here.
+7. Turn off Wi-Fi and read another page: it still works.
 
 ### M5
 

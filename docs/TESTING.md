@@ -15,3 +15,10 @@ service worker URL.
   pronunciations. Add a case for every pronunciation bug found.
 - `tests/unit/core/text/offsetMap.property.test.ts`: fast-check properties over random token mixes.
 - Coverage gates: `src/core/**` ≥ 90% lines/functions/statements, ≥ 85% branches; overall ≥ 75% lines.
+
+## Model tests (`pnpm test:models`)
+
+Real engines in Chromium (WebGPU locally, WASM everywhere). Needs `pnpm models:fetch` first; a
+local server stands in for Hugging Face. Covers install + full verification, non-silent output at
+the right sample rate, monotonic word timings inside the audio, and the offline read (network cut
+after install, zero outbound requests). CI runs them on `workflow_dispatch` with a model cache.

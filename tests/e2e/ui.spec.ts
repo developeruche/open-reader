@@ -146,7 +146,9 @@ test('onboarding advances with the keyboard', async ({ context, extensionId }) =
   await open(page, extensionId, 'onboarding');
   await page.getByRole('button', { name: 'Get started' }).focus();
   await page.keyboard.press('Enter');
-  await expect(page.getByRole('heading', { name: 'Pick a voice' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^Download/ })).toBeVisible();
+  // Continue stays disabled until the model is downloaded.
+  await expect(page.getByRole('button', { name: 'Continue' })).toBeDisabled();
 });
 
 test('mini player renders inside a closed shadow root', async ({ context, extensionId }) => {

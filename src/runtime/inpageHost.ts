@@ -3,7 +3,7 @@
  * hits the offscreen lifetime rules. It reports status to the background only for arbitration.
  */
 import type { ReadingDocument } from '@/core/document/model';
-import { createEngine, type EngineHandle } from '@/engines/factory';
+import { openEngine, type EngineHandle } from '@/engines/factory';
 import { RenderedBackend } from '@/engines/playback/rendered';
 import { IdbSynthesisCache } from '@/platform/audioCache';
 import { connectWithRetry } from '@/platform/ports';
@@ -35,9 +35,13 @@ export function createInPageHost(onEvent?: (e: HostEvent) => void): InPageHost {
     backend,
     cache: new IdbSynthesisCache(),
     async engineFor(settings) {
-      if (!handle || handle.engineId !== settings.engineId) {
+      if (
+        !handle ||
+        handle.engineId !== settings.engineId ||
+        (settings.backend && handle.backend !== settings.backend)
+      ) {
         handle?.terminate();
-        handle = createEngine(settings.engineId);
+        handle = await openEngine(settings);
       }
       return handle;
     },

@@ -2,16 +2,24 @@ import { useState } from 'react';
 import { Check, Play } from '../icons';
 import { Badge, Button, Kbd, Progress } from '../components';
 import { cn } from '../cn';
-import { MOCK_VOICES } from '../mock/mockDocument';
+import { useModels } from '../models/useModels';
 import { ReadingDemo } from '../reading/ReadingDemo';
+import { playSample } from '@/runtime/models';
+import { saveSettings } from '@/platform/settings';
 
-const STEPS = ['Welcome', 'Voice', 'Download', 'Benchmark', 'Shortcuts', 'Done'] as const;
+const STEPS = ['Welcome', 'Download', 'Benchmark', 'Voice', 'Shortcuts', 'Done'] as const;
+const mb = (b: number) => `${Math.round(b / 1e6)} MB`;
 
 export function OnboardingApp() {
   const [step, setStep] = useState(0);
-  const [voice, setVoice] = useState('af_heart');
+  const [sampleError, setSampleError] = useState<string | null>(null);
+  const m = useModels();
+  const kokoro = m.models.find((x) => x.engine === 'kokoro');
+  const installed = !!(kokoro && m.installed[kokoro.id]);
+  const job = kokoro ? m.jobs[kokoro.id] : undefined;
   const next = () => setStep((s) => Math.min(STEPS.length - 1, s + 1));
   const back = () => setStep((s) => Math.max(0, s - 1));
+  const blocked = (step === 1 && !installed) || (step === 2 && m.benchmarking);
 
   return (
     <div className="flex min-h-screen flex-col items-center bg-paper px-6 py-16 text-ink">
@@ -53,67 +61,154 @@ export function OnboardingApp() {
             </div>
           </>
         ) : null}
-        {step === 1 ? (
+
+        {step === 1 && kokoro ? (
+          <>
+            <h1 className="font-serif text-3xl tracking-[-0.02em]">
+              Download {kokoro.displayName}
+            </h1>
+            <p className="mt-2 text-ink-2">
+              {mb(
+                m.gpu
+                  ? kokoro.files
+                      .filter((f) => f.backend !== 'wasm')
+                      .reduce((a, f) => a + f.bytes, 0)
+                  : kokoro.files
+                      .filter((f) => f.backend !== 'webgpu')
+                      .reduce((a, f) => a + f.bytes, 0),
+              )}
+              , once. After this, reading works with the network off.
+            </p>
+            <div className="mt-6 flex items-center gap-2 text-sm">
+              <Badge>{kokoro.license.spdx}</Badge>{' '}
+              <span className="text-muted">huggingface.co · checked with SHA-256</span>
+            </div>
+            {installed ? (
+              <p className="mt-6 flex items-center gap-2 text-sm" role="status">
+                <Check size={16} aria-hidden /> Downloaded and verified.
+              </p>
+            ) : job ? (
+              <>
+                <Progress
+                  className="mt-6"
+                  label="Download progress"
+                  value={job.total ? job.loaded / job.total : null}
+                />
+                <p className="mt-2 text-[13px] text-muted tabular" aria-live="polite">
+                  {job.state === 'error' ? (
+                    <>
+                      <strong className="font-semibold text-ink">Error:</strong> {job.error}
+                    </>
+                  ) : job.state === 'paused' ? (
+                    'Paused.'
+                  ) : (
+                    `${mb(job.loaded)} of ${mb(job.total)}`
+                  )}
+                </p>
+                <div className="mt-3 flex gap-2">
+                  {job.state === 'downloading' ? (
+                    <Button size="sm" onClick={() => m.pause(kokoro.id)}>
+                      Pause
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="primary" onClick={() => void m.install(kokoro)}>
+                      {job.state === 'paused' ? 'Resume' : 'Retry'}
+                    </Button>
+                  )}
+                </div>
+              </>
+            ) : (
+              <Button className="mt-6" variant="primary" onClick={() => void m.install(kokoro)}>
+                Download
+              </Button>
+            )}
+          </>
+        ) : null}
+
+        {step === 2 ? (
+          <>
+            <h1 className="font-serif text-3xl tracking-[-0.02em]">Check this computer</h1>
+            <p className="mt-2 text-ink-2">
+              About ten seconds to pick the fastest way to run the voice.
+            </p>
+            <p className="mt-6 text-sm" aria-live="polite">
+              {m.benchmarking
+                ? 'Measuring…'
+                : m.benchmarkText
+                  ? `Result: ${m.benchmarkText}`
+                  : m.gpu
+                    ? 'WebGPU is available.'
+                    : 'No WebGPU: the voice runs on the CPU.'}
+            </p>
+            {!m.benchmarking && !m.benchmarkText ? (
+              <Button className="mt-4" onClick={() => void m.benchmark()} disabled={!installed}>
+                Run the check
+              </Button>
+            ) : null}
+          </>
+        ) : null}
+
+        {step === 3 && kokoro ? (
           <>
             <h1 className="font-serif text-3xl tracking-[-0.02em]">Pick a voice</h1>
             <p className="mt-2 text-ink-2">
-              Play a ten-second sample of each. You can change this any time.
+              Play a short sample of each. You can change this any time.
             </p>
             <div
               role="radiogroup"
               aria-label="Voice"
               className="mt-6 divide-y divide-line border-y border-line"
             >
-              {MOCK_VOICES.map((v) => (
-                <div key={v.id} className="flex items-center gap-3 py-3">
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={voice === v.id}
-                    onClick={() => setVoice(v.id)}
-                    className="flex flex-1 items-center gap-3 text-left"
-                  >
-                    <span
-                      className={cn(
-                        'flex size-4 items-center justify-center rounded-full border border-ink',
-                      )}
+              {kokoro.voices.map((v) => {
+                const selected = (m.voice?.voice ?? kokoro.defaultVoice) === v.id;
+                return (
+                  <div key={v.id} className="flex items-center gap-3 py-3">
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => void m.setDefault(kokoro, v.id)}
+                      className="flex flex-1 items-center gap-3 text-left"
                     >
-                      {voice === v.id ? <span className="size-2 rounded-full bg-ink" /> : null}
-                    </span>
-                    <span>
-                      <span className="block text-sm font-medium">{v.name}</span>
-                      <span className="block text-[13px] text-muted">{v.detail}</span>
-                    </span>
-                  </button>
-                  <Button size="sm" aria-label={`Play sample of ${v.name}`}>
-                    <Play size={14} aria-hidden /> Sample
-                  </Button>
-                </div>
-              ))}
+                      <span className="flex size-4 items-center justify-center rounded-full border border-ink">
+                        {selected ? <span className="size-2 rounded-full bg-ink" /> : null}
+                      </span>
+                      <span>
+                        <span className="block text-sm font-medium">{v.name}</span>
+                        <span className="block text-[13px] text-muted">
+                          Kokoro · {v.lang === 'en-GB' ? 'UK' : 'US'} English
+                        </span>
+                      </span>
+                    </button>
+                    <Button
+                      size="sm"
+                      aria-label={`Play sample of ${v.name}`}
+                      disabled={!installed}
+                      onClick={() => {
+                        setSampleError(null);
+                        playSample(
+                          kokoro,
+                          v.id,
+                          m.voice?.backend ?? (m.gpu ? 'webgpu' : 'wasm'),
+                        ).catch((e: unknown) =>
+                          setSampleError(e instanceof Error ? e.message : String(e)),
+                        );
+                      }}
+                    >
+                      <Play size={14} aria-hidden /> Sample
+                    </Button>
+                  </div>
+                );
+              })}
             </div>
+            {sampleError ? (
+              <p className="mt-3 text-sm" role="alert">
+                <strong className="font-semibold">Error:</strong> {sampleError}
+              </p>
+            ) : null}
           </>
         ) : null}
-        {step === 2 ? (
-          <>
-            <h1 className="font-serif text-3xl tracking-[-0.02em]">Download Kokoro 82M</h1>
-            <p className="mt-2 text-ink-2">
-              326 MB, once. After this, reading works with the network off.
-            </p>
-            <div className="mt-6 flex items-center gap-2 text-sm">
-              <Badge>Apache-2.0</Badge>{' '}
-              <span className="text-muted">huggingface.co · checked with SHA-256</span>
-            </div>
-            <Progress className="mt-6" label="Download progress" value={0.42} />
-            <p className="mt-2 text-[13px] text-muted tabular">137 of 326 MB</p>
-          </>
-        ) : null}
-        {step === 3 ? (
-          <>
-            <h1 className="font-serif text-3xl tracking-[-0.02em]">Checking this computer</h1>
-            <p className="mt-2 text-ink-2">Ten seconds to pick the fastest way to run the voice.</p>
-            <p className="mt-6 text-sm">Kokoro · WebGPU · 9.4× real time</p>
-          </>
-        ) : null}
+
         {step === 4 ? (
           <>
             <h1 className="font-serif text-3xl tracking-[-0.02em]">Three keys to remember</h1>
@@ -140,18 +235,28 @@ export function OnboardingApp() {
             </ul>
           </>
         ) : null}
+
         {step === 5 ? (
           <>
             <h1 className="font-serif text-3xl tracking-[-0.02em]">Ready</h1>
             <p className="mt-2 text-ink-2">
-              Open any article and press Alt+Shift+O, or open a PDF here.
+              Open any article and press Alt+Shift+O, or right-click it and choose Read page from
+              here.
             </p>
           </>
         ) : null}
 
         <div className="mt-12 flex justify-between">
           {step > 0 ? <Button onClick={back}>Back</Button> : <span />}
-          <Button variant="primary" onClick={next} disabled={step === STEPS.length - 1}>
+          <Button
+            variant="primary"
+            disabled={blocked}
+            onClick={() => {
+              if (step === STEPS.length - 1)
+                void saveSettings({ onboarded: true }).then(() => window.close());
+              else next();
+            }}
+          >
             {step === 0 ? 'Get started' : step === STEPS.length - 1 ? 'Finish' : 'Continue'}
           </Button>
         </div>

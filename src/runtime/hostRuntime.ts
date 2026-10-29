@@ -72,7 +72,34 @@ export class HostRuntime {
     const token = ++this.loadToken;
     this.unload();
     this.lastSettings = cmd.settings;
-    const { engine, model } = await this.deps.engineFor(cmd.settings);
+    let opened: Awaited<ReturnType<HostRuntimeDeps['engineFor']>>;
+    try {
+      opened = await this.deps.engineFor(cmd.settings);
+    } catch (e) {
+      if (token !== this.loadToken) return;
+      // Never fail silently (§1): report a visible error the user can act on.
+      const message = `The voice could not start: ${e instanceof Error ? e.message : String(e)}. Open Settings → Voices & models.`;
+      this.deps.emit({
+        type: 'NOTICE',
+        sessionId: cmd.sessionId,
+        notice: { kind: 'error', message },
+      });
+      this.deps.emit({
+        type: 'STATUS',
+        status: {
+          sessionId: cmd.sessionId,
+          state: 'error',
+          cursor: { sentence: cmd.start.sentence, part: 0, word: cmd.start.word },
+          rate: cmd.settings.rate,
+          voice: cmd.settings.voice,
+          sentenceCount: 0,
+          error: message,
+          audible: 0,
+        },
+      });
+      return;
+    }
+    const { engine, model } = opened;
     // A newer LOAD arrived while the engine was starting: it wins.
     if (token !== this.loadToken) return;
     this.sessionId = cmd.sessionId;

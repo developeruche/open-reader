@@ -1,18 +1,6 @@
 import { useState, type ReactNode } from 'react';
+import { Ban, Gauge, Globe, HardDrive, Info, Keyboard, Mic, Stethoscope, Type } from '../icons';
 import {
-  Ban,
-  Cpu,
-  Gauge,
-  Globe,
-  HardDrive,
-  Info,
-  Keyboard,
-  Mic,
-  Stethoscope,
-  Type,
-} from '../icons';
-import {
-  Badge,
   Button,
   Dialog,
   EmptyState,
@@ -26,6 +14,7 @@ import {
 } from '../components';
 import { cn } from '../cn';
 import { formatRate } from '../format';
+import { VoicesSection } from '../models/VoicesSection';
 import type { useAppearanceHook } from './types';
 
 type SectionId =
@@ -71,55 +60,6 @@ function Section({
       {intro ? <p className="mt-2 text-sm text-ink-2">{intro}</p> : null}
       <div className="mt-8">{children}</div>
     </section>
-  );
-}
-
-const MODELS = [
-  {
-    name: 'Kokoro 82M',
-    detail: 'Natural · native word timing · 326 MB',
-    state: 'Installed',
-    badge: 'Default',
-  },
-  {
-    name: 'Piper Classic (lessac high)',
-    detail: 'Fast · research-use data · 114 MB',
-    state: 'Installed',
-  },
-  {
-    name: 'Piper lessac medium',
-    detail: 'Fastest · research-use data · 63 MB',
-    state: 'Not installed',
-  },
-  { name: 'System voices', detail: 'No download · quality varies', state: 'Available' },
-];
-
-function Voices() {
-  return (
-    <Section
-      title="Voices & models"
-      intro="Everything runs on this device once a model is downloaded."
-    >
-      <p className="mb-4 flex items-center gap-2 text-sm">
-        <Cpu size={16} aria-hidden /> Benchmark: Kokoro · WebGPU · 9.4× real time
-      </p>
-      <ul className="divide-y divide-line border-y border-line">
-        {MODELS.map((m) => (
-          <li key={m.name} className="flex items-center gap-4 py-4">
-            <div className="min-w-0 flex-1">
-              <p className="flex items-center gap-2 text-sm font-medium">
-                {m.name} {m.badge ? <Badge tone="solid">{m.badge}</Badge> : null}
-              </p>
-              <p className="mt-0.5 text-[13px] text-muted">{m.detail}</p>
-            </div>
-            <span className="text-[13px] text-ink-2">{m.state}</span>
-            <Button size="sm" variant={m.state === 'Not installed' ? 'primary' : 'secondary'}>
-              {m.state === 'Not installed' ? 'Install' : 'Manage'}
-            </Button>
-          </li>
-        ))}
-      </ul>
-    </Section>
   );
 }
 
@@ -345,7 +285,7 @@ function About() {
 }
 
 const VIEWS: Record<SectionId, () => ReactNode> = {
-  voices: Voices,
+  voices: VoicesSection,
   playback: Playback,
   rules: Rules,
   pronunciations: Pronunciations,

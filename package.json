@@ -22,7 +22,10 @@
     "licenses:check": "tsx scripts/check-licenses.ts",
     "spikes:build": "wxt build spikes/extension",
     "spikes:run": "tsx spikes/run.ts",
-    "spikes:setup": "tsx spikes/setup.ts"
+    "spikes:setup": "tsx spikes/setup.ts",
+    "test:models": "wxt build --mode test && playwright test --config playwright.models.config.ts",
+    "models:fetch": "tsx scripts/fetch-models.ts",
+    "build:offline": "OPEN_READER_OFFLINE=1 wxt build"
   },
   "dependencies": {
     "@diffusionstudio/piper-wasm": "1.0.0",

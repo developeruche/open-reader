@@ -27,7 +27,7 @@ export const VoiceSchema = z.object({
 
 export const ModelManifestSchema = z
   .object({
-    id: z.string().regex(/^[a-z0-9][a-z0-9.-]*$/),
+    id: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/),
     engine: EngineIdSchema,
     displayName: z.string().min(1),
     version: z.string().min(1),

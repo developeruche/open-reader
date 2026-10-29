@@ -9,3 +9,6 @@ spikes
 tests/fixtures/**/*.json
 PLAN.md
 .claude
+assets/g2p
+src/engines/kokoro/headtts
+models/registry.json

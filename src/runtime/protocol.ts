@@ -23,6 +23,9 @@ export interface SessionSettings {
   voice: string;
   pacing: PacingPreset;
   engineId: string;
+  /** Installed model for render engines (from the registry). */
+  modelId?: string;
+  backend?: 'webgpu' | 'wasm';
 }
 
 export const DEFAULT_SESSION_SETTINGS: SessionSettings = {

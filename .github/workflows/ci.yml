@@ -51,8 +51,9 @@ jobs:
           cache: pnpm
       - uses: actions/cache@v4
         with:
-          path: public/models
+          path: models/cache
           key: models-${{ hashFiles('models/registry.json') }}
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm models:fetch
       - run: pnpm test:models

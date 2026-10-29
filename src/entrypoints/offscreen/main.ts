@@ -1,5 +1,5 @@
 // Engine host for Web mode (PLAN.md §4.2). Only chrome.runtime is available here.
-import { createEngine, type EngineHandle } from '@/engines/factory';
+import { openEngine, type EngineHandle } from '@/engines/factory';
 import { RenderedBackend } from '@/engines/playback/rendered';
 import { IdbSynthesisCache } from '@/platform/audioCache';
 import { connectWithRetry } from '@/platform/ports';
@@ -14,9 +14,15 @@ const runtime: HostRuntime = new HostRuntime({
   backend,
   cache: new IdbSynthesisCache(),
   async engineFor(settings) {
-    if (!handle || handle.engineId !== settings.engineId) {
+    const wanted = settings.modelId ?? settings.engineId;
+    if (
+      !handle ||
+      handle.engineId !== settings.engineId ||
+      (settings.modelId && handle.modelId !== wanted) ||
+      (settings.backend && handle.backend !== settings.backend)
+    ) {
       handle?.terminate();
-      handle = createEngine(settings.engineId);
+      handle = await openEngine(settings);
     }
     return handle;
   },

@@ -100,3 +100,29 @@ describe('HostRuntime load races', () => {
     expect(events.filter((e) => e.type === 'STATUS')).toHaveLength(1);
   });
 });
+
+describe('HostRuntime engine failures', () => {
+  it('reports a visible error when the engine cannot start', async () => {
+    const events: HostEvent[] = [];
+    const rt = new HostRuntime({
+      kind: 'offscreen',
+      backend: new FakeBackend(),
+      engineFor: async () => {
+        throw new Error('Missing file models/kokoro/onnx/model.onnx');
+      },
+      emit: (e) => events.push(e),
+    });
+    await rt.handle({
+      type: 'LOAD',
+      sessionId: 's',
+      doc,
+      start: { sentence: 0, word: 0 },
+      settings: DEFAULT_SESSION_SETTINGS,
+      autoplay: true,
+    });
+    expect(events.map((e) => e.type)).toEqual(['NOTICE', 'STATUS']);
+    const st = events[1];
+    expect(st?.type === 'STATUS' && st.status.state).toBe('error');
+    expect(st?.type === 'STATUS' && st.status.error).toMatch(/Voices & models/);
+  });
+});

@@ -16,6 +16,7 @@ export default tseslint.config(
       'spikes/**',
       'public/**',
       'quality/**',
+      'src/engines/kokoro/headtts/**',
     ],
   },
   js.configs.recommended,

@@ -23,6 +23,30 @@ async function fileHandle(path: string, create = false): Promise<FileSystemFileH
   }
 }
 
+/** A file's contents as a disk-backed File (for slicing and blob URLs without loading it). */
+export async function opfsFile(path: string): Promise<File | undefined> {
+  return (await fileHandle(path))?.getFile();
+}
+
+/** Opens `path` for writing from scratch (the export pipeline's scratch and output files). */
+export async function opfsWriter(
+  path: string,
+): Promise<{ write(chunk: Uint8Array): Promise<void>; close(): Promise<void> }> {
+  const h = await fileHandle(path, true);
+  if (!h) throw new Error(`Cannot write ${path}`);
+  const w = await h.createWritable({ keepExistingData: false });
+  return { write: (c) => w.write(c as Uint8Array<ArrayBuffer>), close: () => w.close() };
+}
+
+export async function opfsRemove(path: string): Promise<void> {
+  try {
+    const { dir, name } = await dirFor(path, false);
+    await dir.removeEntry(name);
+  } catch {
+    // already gone
+  }
+}
+
 /** `FileSystemDirectoryHandle.values()` is missing from TypeScript's DOM lib. */
 interface AsyncDirectory {
   values(): AsyncIterable<FileSystemHandle>;

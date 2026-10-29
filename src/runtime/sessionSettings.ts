@@ -2,6 +2,7 @@
 import type { InstalledIndex } from '@/core/models/manager';
 import type { Settings } from '@/core/settings';
 import { fallbackLadder } from '@/core/tts/fallback';
+import type { StoredEntry } from '@/core/text/lexicon';
 import { DEFAULT_SESSION_SETTINGS, type SessionSettings } from './protocol';
 
 /**
@@ -12,7 +13,9 @@ export function sessionSettingsFrom(
   s: Settings,
   installed: InstalledIndex,
   test: boolean,
+  user: StoredEntry[] = [],
 ): SessionSettings {
+  const lexicon = { user, packs: s.packs };
   let voice = s.voice;
   if (!voice && !test) {
     const kokoro = Object.values(installed).find((m) => m.modelId.startsWith('kokoro'));
@@ -28,6 +31,7 @@ export function sessionSettingsFrom(
       pacing: s.pacing,
       skipRules: s.skipRules,
       cacheCapBytes,
+      lexicon,
     };
   const models = Object.values(installed).map((m) => ({
     engineId: m.modelId.split('-')[0] ?? '',
@@ -42,6 +46,7 @@ export function sessionSettingsFrom(
     voice: voice.voice,
     skipRules: s.skipRules,
     cacheCapBytes,
+    lexicon,
     fallbacks: fallbackLadder(voice, models, { system: !test }),
   };
 }

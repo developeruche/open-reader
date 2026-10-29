@@ -14,13 +14,16 @@ prompting per site. Details of what is stored where are added as storage lands (
 
 ## What is stored where (from M5)
 
-| Store                               | Contents                                                                                                      | Lifetime                 |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| `chrome.storage.session`            | The current reading session (document id, title, URL, position, speed, voice) and the current document's text | Until the browser closes |
-| `chrome.storage.local`              | Appearance and, later, settings                                                                               | Until removed            |
-| IndexedDB `open-reader` → `audio`   | Synthesized audio for recently read sentences (LRU, 512 MB cap)                                               | Until evicted or cleared |
-| IndexedDB `open-reader` → `library` | Title, URL and last position of documents you read                                                            | Until removed            |
-| OPFS `documents/`                   | Copies of PDFs you open in the reader, named by content hash, so they reopen after a restart                  | Until removed            |
+| Store                                | Contents                                                                                                      | Lifetime                 |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| `chrome.storage.session`             | The current reading session (document id, title, URL, position, speed, voice) and the current document's text | Until the browser closes |
+| `chrome.storage.local`               | Appearance and, later, settings                                                                               | Until removed            |
+| IndexedDB `open-reader` → `audio`    | Synthesized audio for recently read sentences (LRU, 512 MB cap)                                               | Until evicted or cleared |
+| IndexedDB `open-reader` → `library`  | Title, URL and last position of documents you read                                                            | Until removed            |
+| IndexedDB `open-reader` → `lexicon`  | Your pronunciations                                                                                           | Until removed            |
+| IndexedDB `open-reader` → `docRules` | Reading rules you chose for a page or PDF                                                                     | Until removed            |
+| OPFS `exports/`                      | An audiobook while it is being made                                                                           | Deleted once it is saved |
+| OPFS `documents/`                    | Copies of PDFs you open in the reader, named by content hash, so they reopen after a restart                  | Until removed            |
 
 Document text and PDFs are stored only on this device and never sent anywhere.
 

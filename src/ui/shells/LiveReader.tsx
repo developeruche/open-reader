@@ -1,13 +1,12 @@
 /** Document mode (PLAN.md §3.4.2, §8): the reader page wired to ReaderController. */
 import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { useStore } from 'zustand';
-import type { SkipRules } from '@/core/text/skip';
 import { REGISTRY } from '@/engines/factory';
 import type { OutlineItem } from '@/pdf/viewer';
 import { ReaderController } from '@/pdf/readerController';
 import { fetchPdf, fileAccessAllowed, loadPdf } from '@/platform/documents';
 import { IdbLibrary } from '@/platform/library';
-import { loadSettings } from '@/platform/settings';
+import { loadSettings, watchSettings } from '@/platform/settings';
 import type { LibraryRow } from '@/platform/audioCache';
 import { HIGHLIGHT_CSS } from '@/web/highlightCss';
 import {
@@ -32,7 +31,10 @@ import {
   Toggle,
   toast,
 } from '../components';
+import { DocRules, PDF_RULES } from '../controls/DocRules';
+import { ExportPanel } from '../controls/ExportPanel';
 import { FloatingTransport } from '../controls/FloatingTransport';
+import { SleepTimerSelect } from '../controls/SleepTimer';
 
 const ZOOMS = [
   { value: 'page-width', label: 'Fit width' },
@@ -60,6 +62,15 @@ export function LiveReader() {
   useEffect(() => {
     if (container.current) ctl.attach(container.current);
     void loadSettings().then((st) => st.readingOrderOverlay && setOverlay(true));
+    let lexiconKey: string | undefined;
+    void loadSettings().then(
+      (st) => (lexiconKey ??= `${st.lexiconRevision}|${st.packs.join(',')}`),
+    );
+    const unwatch = watchSettings((st) => {
+      const key = `${st.lexiconRevision}|${st.packs.join(',')}`;
+      if (lexiconKey !== undefined && key !== lexiconKey) void ctl.refreshLexicon();
+      lexiconKey = key;
+    });
     void new IdbLibrary().recent(20).then((r) => setRecent(r.filter((x) => x.kind === 'pdf')));
     const params = new URLSearchParams(location.search);
     const src = params.get('src');
@@ -88,7 +99,10 @@ export function LiveReader() {
         toast({ kind: 'error', title: e instanceof Error ? e.message : String(e) });
       }
     })();
-    return () => ctl.destroy();
+    return () => {
+      unwatch();
+      ctl.destroy();
+    };
   }, [ctl]);
 
   useEffect(() => {
@@ -112,8 +126,6 @@ export function LiveReader() {
     if (f) void openFile(f);
   };
 
-  const setRule = (k: keyof SkipRules, skip: boolean) =>
-    void ctl.setRules({ ...s.rules, [k]: skip ? 'skip' : 'read' });
   const playing = ['playing', 'buffering', 'preparing', 'seeking'].includes(s.state);
   const voices =
     (REGISTRY.models.find((m) => m.engine === s.engine) ?? REGISTRY.models[0])?.voices.map((v) => ({
@@ -357,27 +369,31 @@ export function LiveReader() {
             <p className="mt-1 text-[13px] text-muted">
               Skipped text stays visible; the voice passes over it.
             </p>
-            <div className="mt-3 divide-y divide-line">
-              <Toggle
-                label="Skip headers and footers"
-                checked={s.rules.headersFooters === 'skip'}
-                onCheckedChange={(v) => setRule('headersFooters', v)}
+            <div className="mt-3 flex flex-col gap-4">
+              <DocRules
+                rules={s.rules}
+                custom={!!s.docRules}
+                keys={PDF_RULES}
+                onChange={(rules) => void ctl.setRules(rules)}
               />
-              <Toggle
-                label="Skip references"
-                checked={s.rules.references === 'skip'}
-                onCheckedChange={(v) => setRule('references', v)}
-              />
-              <Toggle
-                label="Skip figure captions"
-                checked={s.rules.captions === 'skip'}
-                onCheckedChange={(v) => setRule('captions', v)}
-              />
-              <Toggle
-                label="Show reading order"
-                description="Numbers each block in the order it is read."
-                checked={overlay}
-                onCheckedChange={setOverlay}
+              <div className="divide-y divide-line border-t border-line">
+                <Toggle
+                  label="Show reading order"
+                  description="Numbers each block in the order it is read."
+                  checked={overlay}
+                  onCheckedChange={setOverlay}
+                />
+              </div>
+              <SleepTimerSelect value={s.sleep} onChange={(c) => ctl.setSleep(c)} />
+              <ExportPanel
+                job={s.exportJob}
+                disabled={
+                  s.engine === 'system'
+                    ? 'System voices can’t be saved as audio. Choose an on-device voice to export an audiobook.'
+                    : undefined
+                }
+                onStart={(f) => ctl.exportAudio(f)}
+                onCancel={() => ctl.cancelExport()}
               />
             </div>
             {s.emptyPages.length ? (

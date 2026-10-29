@@ -7,6 +7,10 @@ import type { PlaybackBackend } from '@/core/player/backend';
 import type { SynthesisCache } from '@/core/player/cache';
 import { NOTHING_TO_READ, Player } from '@/core/player/player';
 import { switchMessage, type EngineChoice } from '@/core/tts/fallback';
+import { isAbort, serialized } from '@/core/tts/engine';
+import { lexiconFrom } from '@/core/text/lexicon';
+import { DEFAULT_SKIP_RULES } from '@/core/text/skip';
+import { runExport, type ExportStore, type Mp3Encoder } from './export';
 import type { RenderEngine } from '@/core/tts/engine';
 import type {
   HostCommand,
@@ -14,6 +18,7 @@ import type {
   HostKind,
   HostStats,
   HostStatus,
+  ExportStatus,
   SessionSettings,
 } from './protocol';
 
@@ -37,6 +42,14 @@ export interface HostRuntimeDeps {
   now?(): number;
   /** Override IDLE_RELEASE_MS (tests). */
   idleReleaseMs?: number;
+  /** Audiobook export (absent: the host cannot export). */
+  exporter?: {
+    store: ExportStore;
+    mp3(sampleRate: number, kbps: number): Promise<Mp3Encoder>;
+    /** A URL the background can download (blob: URL of the output file). */
+    url(path: string): Promise<string>;
+    release(url: string, path: string): Promise<void>;
+  };
 }
 
 export class HostRuntime {
@@ -50,6 +63,11 @@ export class HostRuntime {
   private idleTimer: ReturnType<typeof setTimeout> | undefined;
   /** The engine was released while idle: the next player command reloads it first. */
   private released = false;
+  /** The LOAD in flight, so an EXPORT sent right after it waits for the engine. */
+  private loading: Promise<void> = Promise.resolve();
+  private engine: RenderEngine | undefined;
+  private model: { modelId: string; version: string } | undefined;
+  private job: { jobId: string; ac: AbortController; url?: string; path?: string } | undefined;
 
   constructor(private readonly deps: HostRuntimeDeps) {
     this.activeBackend = deps.backend;
@@ -96,13 +114,35 @@ export class HostRuntime {
     switch (cmd.type) {
       case 'LOAD':
         if (cmd.sessionId !== this.sessionId) this.counts = { fallbacks: 0, engineRestarts: 0 };
-        await this.load(cmd);
+        this.loading = this.load(cmd);
+        await this.loading;
         break;
       case 'PLAYER':
         if (cmd.sessionId !== this.sessionId) break;
         if (this.released) await this.reacquire();
         this.player?.send(cmd.event);
         break;
+      case 'SET_LEXICON':
+        if (cmd.sessionId !== this.sessionId || !this.player || !this.engine) break;
+        this.lastSettings = { ...this.lastSettings, lexicon: cmd.lexicon };
+        this.player.setSkipRules(
+          this.lastSettings.skipRules ?? DEFAULT_SKIP_RULES,
+          lexiconFrom(cmd.lexicon, this.engine.id),
+        );
+        break;
+      case 'EXPORT':
+        void this.startExport(cmd);
+        break;
+      case 'EXPORT_CANCEL':
+        if (this.job?.jobId === cmd.jobId) this.job.ac.abort();
+        break;
+      case 'EXPORT_RELEASE': {
+        const j = this.job;
+        if (j?.jobId === cmd.jobId && j.url && j.path)
+          void this.deps.exporter?.release(j.url, j.path);
+        if (j?.jobId === cmd.jobId) this.job = undefined;
+        break;
+      }
       case 'UNLOAD':
         if (cmd.sessionId === this.sessionId) this.unload();
         break;
@@ -151,7 +191,8 @@ export class HostRuntime {
       return;
     }
     this.lastSettings = settings;
-    const { engine, model } = opened;
+    const { model } = opened;
+    const engine = serialized(opened.engine);
     this.engineLabel = {
       engine: engine.id,
       backend: (opened as { backend?: string }).backend ?? '',
@@ -160,6 +201,8 @@ export class HostRuntime {
     if (token !== this.loadToken) return;
     this.sessionId = cmd.sessionId;
     this.doc = cmd.doc;
+    this.engine = engine;
+    this.model = model;
     const sessionId = cmd.sessionId;
     this.activeBackend =
       engine.caps.live && this.deps.liveBackend ? this.deps.liveBackend : this.deps.backend;
@@ -175,6 +218,7 @@ export class HostRuntime {
         voice: settings.voice,
         pacing: settings.pacing,
         ...(settings.skipRules ? { skipRules: settings.skipRules } : {}),
+        lexicon: lexiconFrom(settings.lexicon, engine.id),
       },
       start: cmd.start,
       concurrency: engine.caps.backends.includes('webgpu') ? 1 : 2,
@@ -218,7 +262,7 @@ export class HostRuntime {
     if (this.idleTimer || this.released) return;
     this.idleTimer = setTimeout(() => {
       this.idleTimer = undefined;
-      if (!this.player || ACTIVE_STATES.has(this.player.state)) return;
+      if (!this.player || ACTIVE_STATES.has(this.player.state) || this.job) return;
       // The player keeps its position; only the worker (model, WASM heap, GPU buffers) goes.
       this.deps.resetEngine?.();
       this.released = true;
@@ -338,6 +382,83 @@ export class HostRuntime {
     return true;
   }
 
+  /** Renders the current document to an audiobook (ADR 0019); the background downloads it. */
+  private async startExport(cmd: Extract<HostCommand, { type: 'EXPORT' }>): Promise<void> {
+    const status = (s: Partial<ExportStatus> & Pick<ExportStatus, 'state'>, url?: string) =>
+      this.deps.emit({
+        type: 'EXPORT',
+        status: { jobId: cmd.jobId, format: cmd.format, phase: 'render', fraction: 0, ...s },
+        ...(url ? { url } : {}),
+      });
+    // Register first, so a cancel that arrives while the engine is still loading is not lost.
+    if (this.job) this.job.ac.abort();
+    const ac = new AbortController();
+    const job: NonNullable<HostRuntime['job']> = { jobId: cmd.jobId, ac };
+    this.job = job;
+    await this.loading.catch(() => undefined);
+    const ex = this.deps.exporter;
+    const p = this.player;
+    const doc = this.doc;
+    if (this.released) await this.reacquire();
+    const engine = this.engine;
+    const model = this.model;
+    const fail = (message: string) => {
+      if (this.job === job) this.job = undefined;
+      status({ state: 'error', message });
+    };
+    if (ac.signal.aborted) {
+      if (this.job === job) this.job = undefined;
+      return status({ state: 'cancelled' });
+    }
+    if (!ex || !p || !doc || !engine || !model || cmd.sessionId !== this.sessionId)
+      return fail('Open the document and start reading it first.');
+    if (engine.caps.live)
+      return fail("System voices can't be saved as audio. Choose an on-device voice to export.");
+    const c = p.snapshot.context;
+    let last = 0;
+    try {
+      const r = await runExport(
+        {
+          jobId: cmd.jobId,
+          doc,
+          format: cmd.format,
+          voice: c.voice,
+          pacing: c.pacing,
+          skipRules: this.lastSettings.skipRules ?? DEFAULT_SKIP_RULES,
+          lexicon: lexiconFrom(this.lastSettings.lexicon, engine.id),
+          artist: cmd.artist,
+        },
+        {
+          render: {
+            engine,
+            model,
+            cache: this.deps.cache,
+            lang: doc.lang,
+            now: this.deps.now ?? Date.now,
+          },
+          store: ex.store,
+          mp3: ex.mp3,
+          onProgress: (pr) => {
+            // Rendering is most of the work; encoding is the last tenth.
+            const fraction =
+              pr.phase === 'render' ? 0.9 * (pr.done / pr.total) : 0.9 + 0.1 * (pr.done / pr.total);
+            if (fraction - last < 0.01 && pr.done !== pr.total) return;
+            last = fraction;
+            status({ state: 'running', phase: pr.phase, fraction });
+          },
+        },
+        ac.signal,
+      );
+      job.path = r.path;
+      job.url = await ex.url(r.path);
+      status({ state: 'done', phase: 'encode', fraction: 1, filename: r.filename }, job.url);
+    } catch (e) {
+      if (this.job === job) this.job = undefined;
+      if (isAbort(e)) status({ state: 'cancelled' });
+      else status({ state: 'error', message: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
   private startStats(): void {
     if (this.statsTimer) return;
     this.statsTimer = setInterval(() => {
@@ -386,6 +507,8 @@ export class HostRuntime {
     this.player = undefined;
     this.sessionId = undefined;
     this.doc = undefined;
+    this.engine = undefined;
+    this.model = undefined;
   }
 }
 

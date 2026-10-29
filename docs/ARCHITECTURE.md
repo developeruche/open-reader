@@ -92,3 +92,12 @@ each session; `HostRuntime` walks it when an engine cannot start or keeps failin
 and the latest stats per host, served to `src/ui/shells/DiagnosticsSection.tsx` over the UI port.
 `src/ui/shells/StorageSection.tsx` shows real storage use and the audio cache cap. See ADR 0017.
 `src/engines/onnx/externalize.ts` loads WebGPU models with their weights as external data (ADR 0018).
+
+## Power features (M11)
+
+`src/core/player/render.ts` is the segment planner and renderer shared by the player and
+`src/runtime/export.ts` (audiobook export: OPFS scratch, BS.1770 loudness in
+`src/core/audio/loudness.ts`, ID3 chapters in `src/core/audio/id3.ts`, MP3 through
+`src/platform/exporter.ts`). The sleep timer is `src/core/player/sleep.ts`. User pronunciations
+are `src/platform/lexicon.ts`, edited in `src/ui/shells/PronunciationsSection.tsx`. Shared
+controls: `src/ui/controls/{SleepTimer,DocRules,ExportPanel}.tsx`. See ADR 0019.

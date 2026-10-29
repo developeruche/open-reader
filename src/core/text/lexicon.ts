@@ -1,4 +1,5 @@
 /** Pronunciation lexicon (PLAN.md §5.2.4): user entries, then domain packs, then built-ins. */
+import { z } from 'zod';
 import { RewriteBuilder, type Rewrite } from './offsetMap';
 
 export interface LexiconEntry {
@@ -199,4 +200,62 @@ export class Lexicon {
     for (const t of taken) b.replace(t.start, t.end, t.say);
     return b.finish();
   }
+}
+
+// ── stored user entries (the pronunciation editor, JSON import/export) ──────
+
+export const StoredEntrySchema = z.object({
+  id: z.string().min(1),
+  /** The written form, or a regular expression source when `regex` is set. */
+  match: z.string().min(1).max(200),
+  say: z.string().max(400),
+  regex: z.boolean().optional(),
+  engines: z.array(z.string()).optional(),
+  caseSensitive: z.boolean().optional(),
+});
+export type StoredEntry = z.infer<typeof StoredEntrySchema>;
+
+/** The JSON file the editor imports and exports. */
+export const LexiconFileSchema = z.object({
+  format: z.literal('open-reader-lexicon'),
+  version: z.literal(1),
+  entries: z.array(StoredEntrySchema.omit({ id: true }).extend({ id: z.string().optional() })),
+});
+export type LexiconFile = z.infer<typeof LexiconFileSchema>;
+
+/** Stored entries → lexicon entries; invalid regular expressions are dropped. */
+export function compileEntries(stored: readonly StoredEntry[]): LexiconEntry[] {
+  const out: LexiconEntry[] = [];
+  for (const e of stored) {
+    let match: string | RegExp = e.match;
+    if (e.regex) {
+      try {
+        match = new RegExp(e.match, e.caseSensitive ? 'u' : 'iu');
+      } catch {
+        continue;
+      }
+    }
+    out.push({
+      match,
+      say: e.say,
+      ...(e.engines?.length ? { engines: e.engines } : {}),
+      ...(e.caseSensitive ? { caseSensitive: true } : {}),
+    });
+  }
+  return out;
+}
+
+/** What a session carries to its engine host: user entries and enabled packs. */
+export interface LexiconConfig {
+  user: StoredEntry[];
+  packs: string[];
+}
+
+export function lexiconFrom(config: LexiconConfig | undefined, engineId: string): Lexicon {
+  if (!config) return new Lexicon({ engineId });
+  return new Lexicon({
+    engineId,
+    user: compileEntries(config.user),
+    packs: DOMAIN_PACKS.filter((p) => config.packs.includes(p.id)),
+  });
 }

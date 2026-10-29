@@ -12,6 +12,9 @@ import {
 } from '@/core/models/benchmark';
 import { filesFor, ModelManager, modelDir } from '@/core/models/manager';
 import type { ModelManifest } from '@/core/tts/registry';
+import type { VoiceChoice } from '@/core/settings';
+import { lexiconFrom, type StoredEntry } from '@/core/text/lexicon';
+import { normalize } from '@/core/text/normalize';
 import { openEngine, REGISTRY } from '@/engines/factory';
 import { localStore } from '@/platform/kv';
 import { OpfsStore, sha256Subtle } from '@/platform/opfs';
@@ -131,13 +134,14 @@ export async function playSample(
   model: ModelManifest,
   voiceId: string,
   backend: 'webgpu' | 'wasm',
+  text = SAMPLE_TEXT,
 ): Promise<void> {
   if (!sampleHandle || sampleHandle.modelId !== model.id || sampleHandle.backend !== backend) {
     sampleHandle?.terminate();
     sampleHandle = await openEngine({ engineId: model.engine, modelId: model.id, backend });
   }
   const r = await sampleHandle.engine.synthesize({
-    text: SAMPLE_TEXT,
+    text,
     voiceId,
     speed: 1,
     lang: 'en',
@@ -154,4 +158,29 @@ export async function playSample(
 
 export function stopSample(): void {
   sampleAudio?.pause();
+}
+
+/**
+ * The pronunciation editor's Test button: "Say <word>." through the real normalizer with the
+ * entry applied, in the current voice (system voices speak through chrome.tts).
+ */
+export async function testPronunciation(
+  entry: StoredEntry,
+  voice: VoiceChoice | null,
+  speakSystem: (text: string) => void,
+): Promise<string> {
+  const engineId = voice?.engineId ?? 'system';
+  const lexicon = lexiconFrom({ user: [entry], packs: [] }, engineId);
+  const sample = entry.regex ? entry.say : `Say ${entry.match}.`;
+  const spoken = normalize(sample, { lexicon }).spoken;
+  const model = REGISTRY.models.find(
+    (m) => m.id === voice?.modelId || (voice && m.engine === voice.engineId),
+  );
+  if (!voice || engineId === 'system' || !model) {
+    speakSystem(spoken);
+    return spoken;
+  }
+  const gpu = !!(navigator as { gpu?: unknown }).gpu;
+  await playSample(model, voice.voice, voice.backend ?? (gpu ? 'webgpu' : 'wasm'), spoken);
+  return spoken;
 }

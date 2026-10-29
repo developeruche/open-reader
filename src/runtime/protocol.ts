@@ -8,7 +8,9 @@ import type { Cursor, PlayerEvent, PlayerStateValue } from '@/core/player/machin
 import type { PlayerNotice, PlayerStats } from '@/core/player/player';
 import type { SyncEvent } from '@/core/player/sync';
 import type { PacingPreset } from '@/core/text/pacing';
-import type { SkipRules } from '@/core/text/skip';
+import type { LexiconConfig } from '@/core/text/lexicon';
+import { SkipRulesSchema, type SkipRules } from '@/core/text/skip';
+import type { SleepChoice, SleepTimer } from '@/core/player/sleep';
 import type { EngineChoice } from '@/core/tts/fallback';
 import type { DiagnosticsReport } from './orchestrator';
 import type { TtsEvent, TtsSpeakOptions } from '@/engines/system/tts';
@@ -35,6 +37,22 @@ export interface SessionSettings {
   cacheCapBytes?: number;
   /** Engines to try, in order, when this one fails (§9.2). */
   fallbacks?: EngineChoice[];
+  /** User pronunciations and enabled domain packs (§5.2.4). */
+  lexicon?: LexiconConfig;
+}
+
+export type ExportFormat = 'mp3' | 'wav';
+
+/** An audiobook export, as the UI shows it. */
+export interface ExportStatus {
+  jobId: string;
+  format: ExportFormat;
+  state: 'running' | 'done' | 'error' | 'cancelled';
+  phase: 'render' | 'encode';
+  /** 0–1 over both passes. */
+  fraction: number;
+  filename?: string;
+  message?: string;
 }
 
 export const DEFAULT_SESSION_SETTINGS: SessionSettings = {
@@ -62,6 +80,11 @@ export interface SessionInfo {
   updatedAt: number;
   engine?: string;
   backend?: string;
+  /** Running sleep timer, if any. */
+  sleep?: SleepTimer | null;
+  /** Rules chosen for this document, when they differ from the defaults. */
+  docRules?: SkipRules | null;
+  exportJob?: ExportStatus | null;
 }
 
 /** Diagnostics numbers a host reports every second while a session is loaded (§9.2). */
@@ -89,6 +112,12 @@ export type HostCommand =
     }
   | { type: 'PLAYER'; sessionId: string; event: PlayerEvent }
   | { type: 'UNLOAD'; sessionId: string }
+  /** Pronunciations changed: re-plan upcoming segments with the new lexicon. */
+  | { type: 'SET_LEXICON'; sessionId: string; lexicon: LexiconConfig }
+  | { type: 'EXPORT'; sessionId: string; jobId: string; format: ExportFormat; artist?: string }
+  | { type: 'EXPORT_CANCEL'; jobId: string }
+  /** The download finished: drop the output file and its URL. */
+  | { type: 'EXPORT_RELEASE'; jobId: string }
   /** chrome.tts events relayed to the offscreen host (it has no chrome.tts). */
   | { type: 'TTS_EVENT'; id: number; event: TtsEvent };
 
@@ -115,6 +144,8 @@ export type HostEvent =
   | { type: 'POSITION'; position: ReadingPosition }
   | { type: 'NOTICE'; sessionId: string; notice: PlayerNotice }
   | { type: 'STATS'; stats: HostStats }
+  /** Export progress; `url` (a blob: URL of the finished file) comes with state `done`. */
+  | { type: 'EXPORT'; status: ExportStatus; url?: string }
   /** The offscreen host asks the background to drive chrome.tts. */
   | { type: 'TTS'; op: 'speak'; id: number; text: string; options: TtsSpeakOptions }
   | { type: 'TTS'; op: 'pause' | 'resume' | 'stop' };
@@ -143,6 +174,27 @@ export const UiCommandSchema = z.union([
   z.object({ type: z.literal('SET_SPEED'), rate: z.number().min(0.5).max(4) }),
   z.object({ type: z.literal('SET_VOICE'), voice: z.string().min(1) }),
   z.object({ type: z.literal('SET_PACING'), pacing: z.enum(['brisk', 'natural', 'relaxed']) }),
+  z.object({
+    type: z.literal('SET_SLEEP'),
+    sleep: z
+      .union([
+        z.object({
+          kind: z.literal('minutes'),
+          minutes: z
+            .number()
+            .positive()
+            .max(24 * 60),
+        }),
+        z.object({ kind: z.literal('section') }),
+      ])
+      .nullable(),
+  }),
+  /** Reading rules for the current document only; null returns to the defaults. */
+  z.object({ type: z.literal('SET_DOC_RULES'), rules: SkipRulesSchema.nullable() }),
+  z.object({ type: z.literal('EXPORT'), format: z.enum(['mp3', 'wav']) }),
+  z.object({ type: z.literal('EXPORT_CANCEL') }),
+  /** Settings changed elsewhere (pronunciations, packs): apply them to the current session. */
+  z.object({ type: z.literal('SETTINGS_CHANGED') }),
   /** Read the page in a tab (web mode). */
   z.object({
     type: z.literal('READ_TAB'),
@@ -157,6 +209,11 @@ export type UiCommand =
   | { type: 'SET_SPEED'; rate: number }
   | { type: 'SET_VOICE'; voice: string }
   | { type: 'SET_PACING'; pacing: PacingPreset }
+  | { type: 'SET_SLEEP'; sleep: SleepChoice | null }
+  | { type: 'SET_DOC_RULES'; rules: SkipRules | null }
+  | { type: 'EXPORT'; format: ExportFormat }
+  | { type: 'EXPORT_CANCEL' }
+  | { type: 'SETTINGS_CHANGED' }
   | { type: 'READ_TAB'; tabId: number; fromSelection?: boolean };
 
 export function parseUiCommand(raw: unknown): UiCommand | undefined {

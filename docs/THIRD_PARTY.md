@@ -5,17 +5,18 @@ Every dependency's license is checked by `pnpm licenses:check` (allowlist in
 
 ## Runtime dependencies (bundled into the extension)
 
-| Package              | Version | License    |
-| -------------------- | ------- | ---------- |
-| react, react-dom     | 19.3.1  | MIT        |
-| pdfjs-dist           | 6.4.299 | Apache-2.0 |
-| @mozilla/readability | 0.6.0   | Apache-2.0 |
+| Package              | Version | License                                                                                |
+| -------------------- | ------- | -------------------------------------------------------------------------------------- |
+| react, react-dom     | 19.3.1  | MIT                                                                                    |
+| pdfjs-dist           | 6.4.299 | Apache-2.0                                                                             |
+| wasm-media-encoders  | 0.7.0   | MIT; its MP3 encoder is LAME (LGPL-2.0), shipped as a separate, replaceable `mp3.wasm` |
+| @mozilla/readability | 0.6.0   | Apache-2.0                                                                             |
 
 ## Build and test tools
 
 WXT (MIT), Vite (MIT), TypeScript (Apache-2.0), Tailwind CSS (MIT), ESLint (MIT),
 typescript-eslint (MIT), Prettier (MIT), Vitest (MIT), Playwright (Apache-2.0), happy-dom (MIT),
-lefthook (MIT), tsx (MIT), pdf-lib (MIT, fixtures only), Testing Library (MIT), axe-core / @axe-core/playwright (MPL-2.0), fast-check (MIT), fake-indexeddb (Apache-2.0), @xstate/graph (MIT).
+lefthook (MIT), tsx (MIT), pdf-lib (MIT, fixtures only), Testing Library (MIT), axe-core / @axe-core/playwright (MPL-2.0), fast-check (MIT), fake-indexeddb (Apache-2.0), @xstate/graph (MIT), music-metadata (MIT, tests only).
 
 ## Design skills (not shipped)
 

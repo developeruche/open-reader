@@ -24,6 +24,12 @@ export const SettingsSchema = z.object({
   interceptPdf: z.boolean().default(false),
   /** Number PDF blocks in reading order when the reader opens (Diagnostics, §8.3.8). */
   readingOrderOverlay: z.boolean().default(false),
+  /** Domain pronunciation packs in use (§5.2.4). */
+  packs: z.array(z.string()).default(['programming', 'bitcoin']),
+  /** Bumped whenever user pronunciations change, so open sessions re-plan (storage events). */
+  lexiconRevision: z.number().int().nonnegative().default(0),
+  /** Audiobook export format. */
+  exportFormat: z.enum(['mp3', 'wav']).default('mp3'),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 

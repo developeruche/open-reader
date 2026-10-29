@@ -1,4 +1,6 @@
 import type { ReadingPosition } from '@/core/document/model';
+import type { StoredEntry } from '@/core/text/lexicon';
+import type { SkipRules } from '@/core/text/skip';
 /** IndexedDB synthesis cache (`open-reader` db, `audio` store) with LRU eviction by bytes. */
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import {
@@ -25,10 +27,14 @@ export interface OpenReaderDB extends DBSchema {
   audio: { key: string; value: AudioRow; indexes: { lastUsed: number } };
   meta: { key: string; value: number };
   library: { key: string; value: LibraryRow; indexes: { updatedAt: number } };
+  /** User pronunciations (§4.4). */
+  lexicon: { key: string; value: StoredEntry };
+  /** Reading rules chosen for one document. */
+  docRules: { key: string; value: { docId: string; rules: SkipRules } };
 }
 
 export const DB_NAME = 'open-reader';
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;
 
 export function openReaderDb(name = DB_NAME): Promise<IDBPDatabase<OpenReaderDB>> {
   return openDB<OpenReaderDB>(name, DB_VERSION, {
@@ -41,6 +47,10 @@ export function openReaderDb(name = DB_NAME): Promise<IDBPDatabase<OpenReaderDB>
       if (oldVersion < 2) {
         const library = db.createObjectStore('library', { keyPath: 'docId' });
         library.createIndex('updatedAt', 'updatedAt');
+      }
+      if (oldVersion < 3) {
+        db.createObjectStore('lexicon', { keyPath: 'id' });
+        db.createObjectStore('docRules', { keyPath: 'docId' });
       }
     },
   });

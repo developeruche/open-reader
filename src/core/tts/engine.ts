@@ -81,3 +81,27 @@ export const isAbort = (e: unknown): boolean => e instanceof Error && e.name ===
 export function throwIfAborted(signal?: AbortSignal): void {
   if (signal?.aborted) throw new AbortError();
 }
+
+/**
+ * Runs an engine's synthesize calls one at a time in arrival order, so playback and an audiobook
+ * export can share one engine (an ONNX session must not run concurrently).
+ */
+export function serialized(engine: RenderEngine): RenderEngine {
+  let tail: Promise<unknown> = Promise.resolve();
+  return {
+    kind: 'render',
+    id: engine.id,
+    caps: engine.caps,
+    init: (m, o) => engine.init(m, o),
+    voices: () => engine.voices(),
+    dispose: () => engine.dispose(),
+    synthesize(req, signal) {
+      const run = tail.then(() => {
+        if (signal?.aborted) throw new AbortError();
+        return engine.synthesize(req, signal);
+      });
+      tail = run.catch(() => undefined);
+      return run;
+    },
+  };
+}

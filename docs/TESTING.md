@@ -70,3 +70,15 @@ Apple M3 Max, macOS 26.6, Playwright Chromium, 2026-10-29.
 | PDF: first page of a 100-page PDF           | ≤ 2 s          | 54 ms                                                                                                         | Met    |
 | PDF: layout analysis                        | ≤ 50 ms / page | 0.35 ms per page (35 ms for 100 pages)                                                                        | Met    |
 | Memory (Kokoro fp32 WebGPU + 100-page PDF)  | ≤ 1.5 GB       | 1.09 GB added by Open Reader (browser total 1.83 GB; extension renderer 0.46 GB, ADR 0018)                    | Met    |
+
+## Audiobook export and power features (M11)
+
+- `tests/unit/runtime/export.test.ts`: MP3 and WAV through the real LAME WASM. It checks chapters
+  read back by music-metadata and ffprobe (when installed), duration equal to the playback plan,
+  loudness and true peak, cancel, file names and the chapter limit.
+- `tests/unit/core/audio/loudness.test.ts`: BS.1770 references (997 Hz at −23 dBFS reads
+  −26.0 LUFS mono at 48, 24 and 22.05 kHz), gating, true peak and the limiter.
+- `tests/e2e/m11.spec.ts`: export from the side panel and from the PDF reader (files read from
+  `chrome.downloads`), the sleep timer, and per-document rules.
+- `tests/models/export.spec.ts` (`pnpm test:models`): a Kokoro export checked with FFmpeg's
+  `ebur128` (±0.5 LU of −17 LUFS, ≤ −1.5 dBTP); `EXPORT_FORMAT=wav` checks WAV.

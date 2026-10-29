@@ -1,6 +1,7 @@
 /** Library of recent documents with their last reading position (IndexedDB `library`). */
 import type { IDBPDatabase } from 'idb';
 import type { ReadingDocument, ReadingPosition } from '@/core/document/model';
+import type { SkipRules } from '@/core/text/skip';
 import type { LibraryStore } from '@/runtime/orchestrator';
 import { DB_NAME, openReaderDb, type LibraryRow, type OpenReaderDB } from './audioCache';
 
@@ -30,6 +31,16 @@ export class IdbLibrary implements LibraryStore {
 
   async getPosition(docId: string): Promise<ReadingPosition | undefined> {
     return (await (await this.db).get('library', docId))?.position;
+  }
+
+  async getRules(docId: string): Promise<SkipRules | undefined> {
+    return (await (await this.db).get('docRules', docId))?.rules;
+  }
+
+  async saveRules(docId: string, rules: SkipRules | null): Promise<void> {
+    const db = await this.db;
+    if (rules) await db.put('docRules', { docId, rules });
+    else await db.delete('docRules', docId);
   }
 
   async recent(limit = 20): Promise<LibraryRow[]> {

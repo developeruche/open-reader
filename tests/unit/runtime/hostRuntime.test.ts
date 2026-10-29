@@ -320,3 +320,171 @@ describe('HostRuntime idle engine release (ADR 0017)', () => {
     rt.dispose();
   });
 });
+
+describe('HostRuntime export and pronunciations (M11)', () => {
+  const memoryExporter = () => {
+    const files = new Map<string, Uint8Array>();
+    const released: string[] = [];
+    return {
+      files,
+      released,
+      exporter: {
+        store: {
+          appender: async (p: string) => ({
+            write: async (c: Uint8Array) => {
+              const o = files.get(p) ?? new Uint8Array(0);
+              const n = new Uint8Array(o.length + c.length);
+              n.set(o);
+              n.set(c, o.length);
+              files.set(p, n);
+            },
+            close: async () => undefined,
+          }),
+          slice: async (p: string, a: number, b: number) =>
+            (files.get(p) ?? new Uint8Array(0)).slice(a, b).buffer,
+          remove: async (p: string) => void files.delete(p),
+        },
+        mp3: async () => ({
+          encode: (pcm: Float32Array) => new Uint8Array(pcm.length >> 4),
+          finalize: () => new Uint8Array(4),
+        }),
+        url: async (p: string) => `blob:${p}`,
+        release: async (_u: string, p: string) => void released.push(p),
+      },
+    };
+  };
+
+  it('exports the loaded document, reports progress, and releases the file on request', async () => {
+    const events: HostEvent[] = [];
+    const m = memoryExporter();
+    const rt = new HostRuntime({
+      kind: 'offscreen',
+      backend: new FakeBackend(),
+      engineFor: async () => ({ engine: new TestEngine(), model: { modelId: 't', version: '1' } }),
+      emit: (e) => events.push(e),
+      exporter: m.exporter,
+    });
+    await rt.handle({
+      type: 'LOAD',
+      sessionId: 's',
+      doc,
+      start: { sentence: 0, word: 0 },
+      settings: DEFAULT_SESSION_SETTINGS,
+      autoplay: false,
+    });
+    await rt.handle({
+      type: 'EXPORT',
+      sessionId: 's',
+      jobId: 'j',
+      format: 'mp3',
+      artist: 'Open Reader',
+    });
+    await vi.waitFor(() =>
+      expect(events.some((e) => e.type === 'EXPORT' && e.status.state === 'done')).toBe(true),
+    );
+    const exportEvents = events.flatMap((e) => (e.type === 'EXPORT' ? [e] : []));
+    expect(exportEvents.some((e) => e.status.state === 'running' && e.status.fraction > 0)).toBe(
+      true,
+    );
+    const done = exportEvents.at(-1);
+    expect(done).toMatchObject({
+      url: 'blob:exports/j.mp3',
+      status: { filename: 'T.mp3', fraction: 1 },
+    });
+    await rt.handle({ type: 'EXPORT_RELEASE', jobId: 'j' });
+    expect(m.released).toEqual(['exports/j.mp3']);
+    rt.dispose();
+  });
+
+  it('refuses to export without a document or with system voices, and cancels', async () => {
+    const events: HostEvent[] = [];
+    const m = memoryExporter();
+    const rt = new HostRuntime({
+      kind: 'offscreen',
+      backend: new FakeBackend(),
+      engineFor: async () => ({
+        engine: new TestEngine({ delayMs: 20 }),
+        model: { modelId: 't', version: '1' },
+      }),
+      emit: (e) => events.push(e),
+      exporter: m.exporter,
+    });
+    await rt.handle({ type: 'EXPORT', sessionId: 's', jobId: 'a', format: 'wav' });
+    await vi.waitFor(() =>
+      expect(events.at(-1)).toMatchObject({ type: 'EXPORT', status: { state: 'error' } }),
+    );
+    await rt.handle({
+      type: 'LOAD',
+      sessionId: 's',
+      doc,
+      start: { sentence: 0, word: 0 },
+      settings: DEFAULT_SESSION_SETTINGS,
+      autoplay: false,
+    });
+    await rt.handle({ type: 'EXPORT', sessionId: 's', jobId: 'b', format: 'wav' });
+    await rt.handle({ type: 'EXPORT_CANCEL', jobId: 'b' });
+    await vi.waitFor(() =>
+      expect(events.at(-1)).toMatchObject({
+        type: 'EXPORT',
+        status: { jobId: 'b', state: 'cancelled' },
+      }),
+    );
+    expect(m.files.size).toBe(0);
+
+    const live = new HostRuntime({
+      kind: 'offscreen',
+      backend: new FakeBackend(),
+      engineFor: async () => ({
+        engine: {
+          ...new TestEngine(),
+          id: 'system',
+          caps: { ...new TestEngine().caps, live: true },
+        } as unknown as TestEngine,
+        model: { modelId: 'system', version: '1' },
+      }),
+      emit: (e) => events.push(e),
+      exporter: m.exporter,
+    });
+    await live.handle({
+      type: 'LOAD',
+      sessionId: 'l',
+      doc,
+      start: { sentence: 0, word: 0 },
+      settings: DEFAULT_SESSION_SETTINGS,
+      autoplay: false,
+    });
+    await live.handle({ type: 'EXPORT', sessionId: 'l', jobId: 'c', format: 'mp3' });
+    await vi.waitFor(() =>
+      expect(events.at(-1)).toMatchObject({
+        status: { jobId: 'c', state: 'error', message: expect.stringMatching(/System voices/) },
+      }),
+    );
+    rt.dispose();
+    live.dispose();
+  });
+
+  it('applies new pronunciations to upcoming segments', async () => {
+    const engine = new TestEngine();
+    const rt = new HostRuntime({
+      kind: 'offscreen',
+      backend: new FakeBackend(),
+      engineFor: async () => ({ engine, model: { modelId: 't', version: '1' } }),
+      emit: () => undefined,
+    });
+    await rt.handle({
+      type: 'LOAD',
+      sessionId: 's',
+      doc,
+      start: { sentence: 0, word: 0 },
+      settings: DEFAULT_SESSION_SETTINGS,
+      autoplay: false,
+    });
+    await rt.handle({
+      type: 'SET_LEXICON',
+      sessionId: 's',
+      lexicon: { user: [{ id: '1', match: 'Two', say: 'deux' }], packs: [] },
+    });
+    expect(rt.player?.segmentsFor(1)[0]?.spoken).toBe('deux here.');
+    rt.dispose();
+  });
+});

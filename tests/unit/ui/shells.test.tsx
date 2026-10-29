@@ -48,6 +48,9 @@ vi.mock('@/platform/tabs', () => ({
 }));
 // Storage and Diagnostics have their own tests (optionsSections.test.tsx).
 vi.mock('@/ui/shells/StorageSection', () => ({ StorageSection: () => <h1>Storage</h1> }));
+vi.mock('@/ui/shells/PronunciationsSection', () => ({
+  PronunciationsSection: () => <h1>Pronunciations</h1>,
+}));
 vi.mock('@/ui/shells/DiagnosticsSection', () => ({
   DiagnosticsSection: () => <h1>Diagnostics</h1>,
 }));

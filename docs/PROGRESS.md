@@ -13,7 +13,7 @@
 - [x] M8: Web mode, end to end
 - [x] M9: Document mode (PDF), end to end
 - [x] M10: Reliability, performance and diagnostics hardening
-- [ ] M11: Power features
+- [x] M11: Power features
 - [ ] M12: Online voices (opt-in)
 - [ ] M13: OCR for scanned PDFs (optional)
 - [ ] M14: Polish, audits and v1.0.0
@@ -27,6 +27,7 @@
 | [0016](adr/0016-document-mode.md)                       | PDF layout analysis, text-layer mapping, OPFS document store and opt-in PDF interception                     |
 | [0017](adr/0017-reliability-diagnostics-and-budgets.md) | Fallback ladder, diagnostics, budgets, soak test, SLO results; COOP/COEP stays off; memory miss plan         |
 | [0018](adr/0018-onnx-external-data-and-idle-release.md) | WebGPU weights load as external data (WASM heap 757 → 33 MB); idle engines released after 5 min              |
+| [0019](adr/0019-power-features-and-audiobook-export.md) | Pronunciation editor, per-document rules, sleep timer, audiobook export (−17 LUFS, MP3/WAV, chapters)        |
 
 ## UI/UX skills installed (M0)
 
@@ -74,6 +75,23 @@ Throwaway code under `spikes/` (excluded from build, lint and typecheck). Reprod
 `pnpm spikes:setup && pnpm spikes:build && pnpm spikes:run`; results land in `spikes/out/` (gitignored).
 
 ## Manual QA scripts
+
+### M11
+
+1. Options → Pronunciations: add "Schnorr" said as "shnor", press **Test** and listen. Read a page
+   that mentions it: the new pronunciation is used without restarting. Export the list, delete the
+   entry (then **Undo**), and import the file again.
+2. Turn off the Bitcoin pack and read a page with "PSBT": it is no longer spelled out.
+3. Side panel → Settings → **Sleep timer** → 5 minutes. Reading pauses at a sentence end after
+   5 minutes. Try **End of section**: it pauses at the next heading.
+4. Under **Rules for this document**, turn off "Skip code blocks": the page is re-read with code,
+   at the same sentence. Reload the page later: the rule is remembered. **Use my default rules**
+   resets it.
+5. **Export audiobook…** → MP3 → Start. Close and reopen the side panel while it runs; the
+   progress is still there. Open the file from Downloads in a player that shows chapters (Apple
+   Books, VLC): one chapter per heading, steady loudness. Try WAV once, and Cancel once.
+6. In a PDF (reader → reading rules drawer), export an audiobook and set a sleep timer.
+7. Options → Playback: set a default speed (up to 4×) and pauses; new sessions use them.
 
 ### M10
 

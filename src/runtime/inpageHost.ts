@@ -8,6 +8,7 @@ import { RenderedBackend } from '@/engines/playback/rendered';
 import { LiveBackend } from '@/engines/system/liveBackend';
 import { chromeTts } from '@/platform/tts';
 import { IdbSynthesisCache } from '@/platform/audioCache';
+import { createExporter } from '@/platform/exporter';
 import { connectWithRetry } from '@/platform/ports';
 import { HostRuntime } from './hostRuntime';
 import {
@@ -38,6 +39,7 @@ export function createInPageHost(onEvent?: (e: HostEvent) => void): InPageHost {
     backend,
     liveBackend: new LiveBackend(tts),
     cache: new IdbSynthesisCache(),
+    exporter: createExporter(),
     async engineFor(settings) {
       if (
         !handle ||

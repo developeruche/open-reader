@@ -69,3 +69,39 @@ export function decodeWav(bytes: Uint8Array): { pcm: Int16Array; sampleRate: num
   }
   throw new Error('WAV has no data chunk');
 }
+
+/**
+ * Header for a streamed 16-bit mono WAV of `samples` samples, followed later by an optional
+ * `id3 ` chunk of `id3Bytes` (players such as VLC and foobar2000 read tags and chapters there).
+ */
+export function wavHeader(samples: number, sampleRate: number, id3Bytes = 0): Uint8Array {
+  const data = samples * 2;
+  const tail = id3Bytes ? 8 + id3Bytes + (id3Bytes % 2) : 0;
+  const v = new DataView(new ArrayBuffer(44));
+  const ascii = (o: number, s: string) => {
+    for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i));
+  };
+  ascii(0, 'RIFF');
+  v.setUint32(4, 36 + data + (data % 2) + tail, true);
+  ascii(8, 'WAVE');
+  ascii(12, 'fmt ');
+  v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true);
+  v.setUint16(22, 1, true);
+  v.setUint32(24, sampleRate, true);
+  v.setUint32(28, sampleRate * 2, true);
+  v.setUint16(32, 2, true);
+  v.setUint16(34, 16, true);
+  ascii(36, 'data');
+  v.setUint32(40, data, true);
+  return new Uint8Array(v.buffer);
+}
+
+/** The `id3 ` RIFF chunk that follows the data chunk (padded to an even length). */
+export function wavId3Chunk(tag: Uint8Array): Uint8Array {
+  const out = new Uint8Array(8 + tag.length + (tag.length % 2));
+  out.set([0x69, 0x64, 0x33, 0x20]); // "id3 "
+  new DataView(out.buffer).setUint32(4, tag.length, true);
+  out.set(tag, 8);
+  return out;
+}

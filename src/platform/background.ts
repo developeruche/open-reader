@@ -1,5 +1,7 @@
 import { browser, type Browser } from 'wxt/browser';
 import { IdbLibrary } from './library';
+import { IdbLexicon } from './lexicon';
+import { downloadAndWait } from './downloads';
 import { closeOffscreen, ensureOffscreen, offscreenExists } from './offscreen';
 import { ChromeSessionStore } from './session';
 import { loadSettings, watchSettings } from './settings';
@@ -29,6 +31,7 @@ export function startBackground(): void {
   void browser.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 
   const debugLog: DebugEvent[] = [];
+  const lexicon = new IdbLexicon();
   const tts = chromeTts();
   const uiPorts = new Set<Browser.runtime.Port>();
   const contentPorts = new Map<number, Browser.runtime.Port>();
@@ -76,8 +79,9 @@ export function startBackground(): void {
     },
     async settings() {
       const installed = (await localStore().get<InstalledIndex>(INSTALLED_KEY)) ?? {};
-      return sessionSettingsFrom(await loadSettings(), installed, TEST);
+      return sessionSettingsFrom(await loadSettings(), installed, TEST, await lexicon.list());
     },
+    download: downloadAndWait,
     async activeTabId() {
       const [tab] = await browser.tabs.query({ active: true, lastFocusedWindow: true });
       return tab?.id;
@@ -174,8 +178,15 @@ export function startBackground(): void {
 
   void loadSettings().then((s) => setPdfInterception(s.interceptPdf));
   let intercept: boolean | undefined;
+  let lexiconKey: string | undefined;
+  void loadSettings().then((s) => (lexiconKey ??= `${s.lexiconRevision}|${s.packs.join(',')}`));
   watchSettings((s) => {
     if (s.interceptPdf !== intercept) void setPdfInterception((intercept = s.interceptPdf));
+    // Pronunciations or packs changed in Settings: re-plan the open session (§5.2.4).
+    const key = `${s.lexiconRevision}|${s.packs.join(',')}`;
+    if (lexiconKey !== undefined && key !== lexiconKey)
+      void orch.command({ type: 'SETTINGS_CHANGED' });
+    lexiconKey = key;
   });
 
   browser.commands.onCommand.addListener((name) => void orch.keyboardCommand(name));

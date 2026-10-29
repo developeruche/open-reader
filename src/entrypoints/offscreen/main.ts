@@ -4,6 +4,7 @@ import { RenderedBackend } from '@/engines/playback/rendered';
 import { LiveBackend } from '@/engines/system/liveBackend';
 import { RemoteTts } from '@/engines/system/remoteTts';
 import { IdbSynthesisCache } from '@/platform/audioCache';
+import { createExporter } from '@/platform/exporter';
 import { connectWithRetry } from '@/platform/ports';
 import { HostRuntime } from '@/runtime/hostRuntime';
 import { PORT, type HostCommand, type HostEvent } from '@/runtime/protocol';
@@ -19,6 +20,7 @@ const runtime: HostRuntime = new HostRuntime({
   backend,
   liveBackend,
   cache: new IdbSynthesisCache(),
+  exporter: createExporter(),
   async engineFor(settings) {
     const wanted = settings.modelId ?? settings.engineId;
     if (

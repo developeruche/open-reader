@@ -47,6 +47,7 @@
     "radix-ui": "1.8.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",
+    "wasm-media-encoders": "0.7.0",
     "xstate": "5.33.3",
     "zod": "4.6.7",
     "zustand": "5.0.16"
@@ -74,6 +75,7 @@
     "globals": "17.13.0",
     "happy-dom": "21.0.4",
     "lefthook": "2.2.2",
+    "music-metadata": "12.3.2",
     "pdf-lib": "1.17.1",
     "prettier": "3.9.10",
     "tailwindcss": "4.3.3",

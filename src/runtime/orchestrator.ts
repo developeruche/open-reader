@@ -6,12 +6,14 @@ import type { ReadingDocument, ReadingPosition } from '@/core/document/model';
 import type { PlayerEvent } from '@/core/player/machine';
 import { Navigator } from '@/core/document/positions';
 import { DiagLog, type LogEntry } from '@/core/diagnostics/log';
-import { applySkipRules, DEFAULT_SKIP_RULES } from '@/core/text/skip';
+import { applySkipRules, DEFAULT_SKIP_RULES, type SkipRules } from '@/core/text/skip';
+import { checkSleep, SLEEP_SETTLED_STATES, startSleep } from '@/core/player/sleep';
 import type {
   ContentUpdate,
   HostCommand,
   HostEvent,
   HostKind,
+  ExportStatus,
   HostStats,
   HostStatus,
   SessionInfo,
@@ -39,6 +41,9 @@ export interface LibraryStore {
     meta: { title: string; url?: string; kind: ReadingDocument['kind'] },
   ): Promise<void>;
   getPosition(docId: string): Promise<ReadingPosition | undefined>;
+  /** Reading rules chosen for one document (null: back to the defaults). */
+  getRules?(docId: string): Promise<SkipRules | undefined>;
+  saveRules?(docId: string, rules: SkipRules | null): Promise<void>;
 }
 
 export interface OrchestratorDeps {
@@ -55,6 +60,8 @@ export interface OrchestratorDeps {
   now(): number;
   newId(): string;
   debug?(e: DebugEvent): void;
+  /** Saves a finished audiobook (chrome.downloads); resolves when the file is written. */
+  download?(url: string, filename: string): Promise<void>;
 }
 
 export type DebugEvent =
@@ -75,6 +82,8 @@ export class Orchestrator {
   session: SessionInfo | null = null;
   readonly log = new DiagLog();
   private readonly stats = new Map<HostKind, HostStats>();
+  /** Navigator of the session's document, for sleep-timer sections. */
+  private nav: { docId: string; nav: Navigator } | undefined;
   private readonly links = new Map<HostKind, HostLink>();
   private readonly ready = new Set<HostKind>();
   private readonly pending = new Map<HostKind, HostCommand[]>();
@@ -184,6 +193,9 @@ export class Orchestrator {
       case 'STATS':
         this.stats.set(kind, e.stats);
         break;
+      case 'EXPORT':
+        await this.onExport(kind, e.status, e.url);
+        break;
     }
   }
 
@@ -212,6 +224,8 @@ export class Orchestrator {
   private async onStatus(kind: HostKind, status: HostStatus): Promise<void> {
     const previous = this.lastStatus.get(kind);
     this.lastStatus.set(kind, status);
+    if (this.session?.sleep && status.sessionId === this.session.sessionId)
+      await this.checkSleepTimer(kind, status);
     if (status.state !== previous?.state)
       this.note(
         status.state === 'error' ? 'error' : 'info',
@@ -294,6 +308,29 @@ export class Orchestrator {
       }
       return;
     }
+    switch (cmd.type) {
+      case 'SET_SLEEP':
+        return this.setSleep(cmd.sleep);
+      case 'SET_DOC_RULES':
+        return this.setDocRules(cmd.rules);
+      case 'EXPORT':
+        return this.startExport(cmd.format);
+      case 'EXPORT_CANCEL':
+        if (s.exportJob?.state === 'running')
+          this.sendTo(s.host, { type: 'EXPORT_CANCEL', jobId: s.exportJob.jobId });
+        return;
+      case 'SETTINGS_CHANGED': {
+        const fresh = await this.deps.settings();
+        await this.updateSession({ settings: { ...s.settings, lexicon: fresh.lexicon } });
+        if (fresh.lexicon)
+          this.sendTo(s.host, {
+            type: 'SET_LEXICON',
+            sessionId: s.sessionId,
+            lexicon: fresh.lexicon,
+          });
+        return;
+      }
+    }
     const event = cmd as PlayerEvent;
     if (s.host === 'offscreen') {
       const wantsPlay = cmd.type === 'PLAY' || (cmd.type === 'TOGGLE' && s.state !== 'playing');
@@ -343,8 +380,10 @@ export class Orchestrator {
     startAt?: TextPoint,
   ): Promise<void> {
     await this.restored;
-    const settings = await this.deps.settings();
-    const rules = settings.skipRules ?? DEFAULT_SKIP_RULES;
+    const base = await this.deps.settings();
+    const docRules = (await this.deps.library.getRules?.(raw.id)) ?? null;
+    const rules = docRules ?? base.skipRules ?? DEFAULT_SKIP_RULES;
+    const settings: SessionSettings = { ...base, skipRules: rules };
     // Reading rules decide which blocks are spoken, and so the sentence numbering.
     const doc: ReadingDocument = { ...raw, blocks: applySkipRules(raw.blocks, rules) };
     const nav = new Navigator(doc, { announceSkippedCode: rules.announceSkippedCode });
@@ -379,7 +418,11 @@ export class Orchestrator {
       hostLost: false,
       error: null,
       updatedAt: this.deps.now(),
+      docRules,
+      sleep: null,
+      exportJob: null,
     };
+    this.nav = { docId: doc.id, nav };
     await this.deps.store.saveDoc(doc);
     const previousTab = this.session?.tabId;
     this.session = session;
@@ -446,6 +489,138 @@ export class Orchestrator {
     await this.command({ type: 'SEEK', sentence, word: nav.wordAtOffset(sentence, at.offset) });
     if (s.state !== 'playing') await this.command({ type: 'PLAY' });
     return true;
+  }
+
+  // ── sleep timer, per-document rules, export (M11) ──────────────────────
+
+  private async navigator(): Promise<Navigator | undefined> {
+    const s = this.session;
+    if (!s) return undefined;
+    if (this.nav?.docId === s.docId) return this.nav.nav;
+    const doc = await this.deps.store.loadDoc(s.docId);
+    if (!doc) return undefined;
+    const nav = new Navigator(doc, {
+      announceSkippedCode: (s.settings.skipRules ?? DEFAULT_SKIP_RULES).announceSkippedCode,
+    });
+    this.nav = { docId: s.docId, nav };
+    return nav;
+  }
+
+  private async setSleep(
+    choice: Extract<UiCommand, { type: 'SET_SLEEP' }>['sleep'],
+  ): Promise<void> {
+    const s = this.session;
+    const nav = await this.navigator();
+    if (!s || !nav) return;
+    await this.updateSession({
+      sleep: choice ? startSleep(choice, this.deps.now(), nav, s.cursor.sentence) : null,
+    });
+  }
+
+  private async checkSleepTimer(kind: HostKind, status: HostStatus): Promise<void> {
+    const s = this.session;
+    const nav = await this.navigator();
+    if (!s?.sleep || !nav || !SLEEP_SETTLED_STATES.has(status.state)) return;
+    const r = checkSleep(s.sleep, {
+      now: this.deps.now(),
+      nav,
+      sentence: status.cursor.sentence,
+      playing: status.state === 'playing',
+    });
+    if (r === 'keep') return;
+    await this.updateSession({ sleep: null });
+    if (r === 'fire') {
+      this.sendTo(kind, {
+        type: 'PLAYER',
+        sessionId: s.sessionId,
+        event: { type: 'SLEEP_TIMER_FIRED' },
+      });
+      this.deps.ui.broadcast({
+        type: 'NOTICE',
+        notice: { kind: 'info', message: 'Sleep timer: reading paused.' },
+      });
+    }
+  }
+
+  /** Re-reads the document with rules for this page only, keeping the position (§7). */
+  private async setDocRules(rules: SkipRules | null): Promise<void> {
+    const s = this.session;
+    if (!s || s.host !== 'offscreen') return;
+    const old = await this.deps.store.loadDoc(s.docId);
+    if (!old) return;
+    await this.deps.library.saveRules?.(s.docId, rules);
+    const base = await this.deps.settings();
+    const next = rules ?? base.skipRules ?? DEFAULT_SKIP_RULES;
+    const oldNav = await this.navigator();
+    const pos = oldNav?.position(s.cursor.sentence, s.cursor.word, this.deps.now());
+    const doc: ReadingDocument = { ...old, blocks: applySkipRules(old.blocks, next) };
+    const nav = new Navigator(doc, { announceSkippedCode: next.announceSkippedCode });
+    const at = pos ? nav.resolve(pos) : { index: 0, word: 0 };
+    this.nav = { docId: doc.id, nav };
+    await this.deps.store.saveDoc(doc);
+    const settings = { ...s.settings, skipRules: next };
+    await this.updateSession({
+      settings,
+      docRules: rules,
+      sentenceCount: nav.length,
+      cursor: { sentence: at.index, part: 0, word: at.word },
+    });
+    this.deps.ui.broadcast({ type: 'DOC', doc });
+    this.sendTo('offscreen', {
+      type: 'LOAD',
+      sessionId: s.sessionId,
+      doc,
+      start: { sentence: at.index, word: at.word },
+      settings,
+      autoplay: s.state === 'playing' || s.state === 'buffering',
+    });
+  }
+
+  private async startExport(format: 'mp3' | 'wav'): Promise<void> {
+    const s = this.session;
+    if (!s || s.host !== 'offscreen') return;
+    const jobId = this.deps.newId();
+    await this.updateSession({
+      exportJob: { jobId, format, state: 'running', phase: 'render', fraction: 0 },
+    });
+    if (s.hostLost || !this.links.has('offscreen')) {
+      // Recreate the host with the document loaded, paused, then export.
+      await this.updateSession({ hostLost: true });
+      if (this.ready.has('offscreen')) await this.loadIntoHost(this.session ?? s, false);
+      else await this.deps.offscreen.ensure();
+    }
+    this.sendTo('offscreen', {
+      type: 'EXPORT',
+      sessionId: s.sessionId,
+      jobId,
+      format,
+      artist: 'Open Reader',
+    });
+  }
+
+  private async onExport(kind: HostKind, status: ExportStatus, url?: string): Promise<void> {
+    const s = this.session;
+    if (!s || s.exportJob?.jobId !== status.jobId) return;
+    await this.updateSession({ exportJob: status });
+    if (status.state === 'error') this.note('error', kind, 'export failed', status.message);
+    if (status.state !== 'done' || !url) return;
+    try {
+      if (!this.deps.download) throw new Error('Downloads are not available.');
+      await this.deps.download(url, status.filename ?? `audiobook.${status.format}`);
+      this.deps.ui.broadcast({
+        type: 'NOTICE',
+        notice: {
+          kind: 'info',
+          message: `Saved “${status.filename ?? 'audiobook'}” to Downloads.`,
+        },
+      });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      await this.updateSession({ exportJob: { ...status, state: 'error', message } });
+      this.deps.ui.broadcast({ type: 'NOTICE', notice: { kind: 'error', message } });
+    } finally {
+      this.sendTo(kind, { type: 'EXPORT_RELEASE', jobId: status.jobId });
+    }
   }
 
   defaultSettings(): SessionSettings {

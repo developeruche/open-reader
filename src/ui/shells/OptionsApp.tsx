@@ -3,21 +3,12 @@ import type { Settings } from '@/core/settings';
 import type { SkipRules } from '@/core/text/skip';
 import { loadSettings, saveSettings } from '@/platform/settings';
 import { Ban, Gauge, Globe, HardDrive, Info, Keyboard, Mic, Stethoscope, Type } from '../icons';
-import {
-  Button,
-  Dialog,
-  EmptyState,
-  Kbd,
-  Select,
-  Skeleton,
-  SkipLink,
-  Slider,
-  Toggle,
-} from '../components';
+import { Button, Dialog, Kbd, Select, Skeleton, SkipLink, Slider, Toggle } from '../components';
 import { cn } from '../cn';
 import { formatRate } from '../format';
 import { VoicesSection } from '../models/VoicesSection';
 import { DiagnosticsSection } from './DiagnosticsSection';
+import { PronunciationsSection } from './PronunciationsSection';
 import { StorageSection } from './StorageSection';
 import type { useAppearanceHook } from './types';
 
@@ -68,8 +59,20 @@ function Section({
 }
 
 function Playback() {
+  const [settings, setSettings] = useState<Settings | null>(null);
   const [rate, setRate] = useState(1);
-  const [pacing, setPacing] = useState('natural');
+  useEffect(() => {
+    void loadSettings().then((x) => {
+      setSettings(x);
+      setRate(x.rate);
+    });
+  }, []);
+  if (!settings)
+    return (
+      <Section title="Playback" intro="Defaults for new reading sessions.">
+        <Skeleton className="h-28 w-full" />
+      </Section>
+    );
   return (
     <Section title="Playback" intro="Defaults for new reading sessions.">
       <div className="flex items-baseline justify-between">
@@ -84,12 +87,18 @@ function Playback() {
         step={0.05}
         value={rate}
         onValueChange={setRate}
+        onValueCommit={(v) => void saveSettings({ rate: v }).then(setSettings)}
       />
+      <p className="mt-2 text-[13px] text-muted">
+        Above 2× the voice speaks faster too, so speech stays clear.
+      </p>
       <div className="mt-8">
         <Select
           label="Pauses between sentences and paragraphs"
-          value={pacing}
-          onValueChange={setPacing}
+          value={settings.pacing}
+          onValueChange={(v) =>
+            void saveSettings({ pacing: v as Settings['pacing'] }).then(setSettings)
+          }
           options={[
             { value: 'brisk', label: 'Brisk', hint: '0.6×' },
             { value: 'natural', label: 'Natural', hint: '1.0×' },
@@ -156,19 +165,6 @@ function Rules() {
           onCheckedChange={(v) => update({ interceptPdf: v })}
         />
       </div>
-    </Section>
-  );
-}
-
-function Pronunciations() {
-  return (
-    <Section title="Pronunciations" intro="Teach the voice how to say names and terms.">
-      <EmptyState
-        icon={<Type size={24} aria-hidden />}
-        title="No custom pronunciations yet"
-        body="Add a word and how it should sound, then press Test to hear it in the current voice."
-        action={<Button variant="primary">Add pronunciation</Button>}
-      />
     </Section>
   );
 }
@@ -262,7 +258,7 @@ const VIEWS: Record<SectionId, () => ReactNode> = {
   voices: VoicesSection,
   playback: Playback,
   rules: Rules,
-  pronunciations: Pronunciations,
+  pronunciations: PronunciationsSection,
   online: Online,
   shortcuts: Shortcuts,
   storage: StorageSection,

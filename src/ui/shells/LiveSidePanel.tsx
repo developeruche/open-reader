@@ -3,9 +3,13 @@ import { useCallback, useEffect, type ReactNode } from 'react';
 import { REGISTRY } from '@/engines/factory';
 import { isPdfUrl, openOptions, openReader, tabUrl } from '@/platform/tabs';
 import type { SessionInfo, UiCommand } from '@/runtime/protocol';
+import { DEFAULT_SKIP_RULES } from '@/core/text/skip';
 import { BookOpen, FileText, MoreHorizontal, Settings, SkipBack, SkipForward } from '../icons';
 import { Button, EmptyState, IconButton, Menu, Select, Tabs, Toggle } from '../components';
+import { DocRules, WEB_RULES } from '../controls/DocRules';
 import { EngineStatus } from '../controls/EngineStatus';
+import { ExportPanel } from '../controls/ExportPanel';
+import { SleepTimerSelect } from '../controls/SleepTimer';
 import { PlayButton } from '../controls/PlayButton';
 import { SpeedControl } from '../controls/SpeedControl';
 import { VoiceControl, type VoiceOption } from '../controls/VoiceControl';
@@ -307,6 +311,26 @@ export function LiveSidePanel({ useAppearance }: { useAppearance: useAppearanceH
                       { value: 'natural', label: 'Natural' },
                       { value: 'relaxed', label: 'Relaxed' },
                     ]}
+                  />
+                  <SleepTimerSelect
+                    value={session.sleep}
+                    onChange={(sleep) => cmd({ type: 'SET_SLEEP', sleep })}
+                  />
+                  <DocRules
+                    rules={session.settings.skipRules ?? DEFAULT_SKIP_RULES}
+                    custom={!!session.docRules}
+                    keys={WEB_RULES}
+                    onChange={(rules) => cmd({ type: 'SET_DOC_RULES', rules })}
+                  />
+                  <ExportPanel
+                    job={session.exportJob}
+                    disabled={
+                      session.settings.engineId === 'system'
+                        ? 'System voices can’t be saved as audio. Choose an on-device voice to export an audiobook.'
+                        : undefined
+                    }
+                    onStart={(format) => cmd({ type: 'EXPORT', format })}
+                    onCancel={() => cmd({ type: 'EXPORT_CANCEL' })}
                   />
                   <Select
                     label="Theme"

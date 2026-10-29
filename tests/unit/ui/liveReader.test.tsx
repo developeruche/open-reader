@@ -34,6 +34,9 @@ const BASE: ReaderState = {
   firstPageMs: 0,
   layoutMs: 0,
   emptyPages: [],
+  sleep: null,
+  docRules: null,
+  exportJob: null,
 };
 
 let fake: FakeController;

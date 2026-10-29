@@ -4,21 +4,18 @@
  * the real backend and engine.
  */
 import { createActor, type Actor, type SnapshotFrom } from 'xstate';
-import { trimSilence } from '../audio/dsp';
-import { postProcess, type ProcessedAudio } from '../audio/process';
+import type { ProcessedAudio } from '../audio/process';
 import { estimateTimings, type WordTiming } from '../audio/timing';
-import { floatToInt16, int16ToFloat } from '../audio/wav';
-import type { BlockType, ReadingDocument, ReadingPosition } from '../document/model';
+import type { ReadingDocument, ReadingPosition } from '../document/model';
 import { Navigator, type SentenceRef } from '../document/positions';
 import { Lexicon } from '../text/lexicon';
 import { RtfMonitor } from '../models/benchmark';
-import { NORMALIZER_VERSION } from '../text/normalize';
 import type { PacingPreset } from '../text/pacing';
-import { buildSegments, type SpokenSegment } from '../text/segments';
-import { DEFAULT_SKIP_RULES, inlineSkips, skipAnnouncement, type SkipRules } from '../text/skip';
-import { isAbort, type RenderEngine, type SynthesisResult } from '../tts/engine';
+import type { SpokenSegment } from '../text/segments';
+import { DEFAULT_SKIP_RULES, type SkipRules } from '../text/skip';
+import { isAbort, type RenderEngine } from '../tts/engine';
 import type { BackendEvent, PlaybackBackend } from './backend';
-import { cacheKey, type SynthesisCache } from './cache';
+import type { SynthesisCache } from './cache';
 import {
   playerMachine,
   type Cursor,
@@ -28,6 +25,7 @@ import {
   type PlayerNav,
   type PlayerStateValue,
 } from './machine';
+import { renderSegment, sentenceSegments } from './render';
 import { PrefetchScheduler, type Wanted } from './scheduler';
 import { anchorFor, type SyncEvent, type SyncWord } from './sync';
 
@@ -269,21 +267,12 @@ export class Player {
   segmentsFor(sentence: number): SpokenSegment[] {
     const cached = this.segments.get(sentence);
     if (cached) return cached;
-    const ref = this.nav.at(sentence);
-    if (!ref) return [];
-    const nextRef = this.nav.at(sentence + 1);
-    const lastInBlock = !nextRef || nextRef.blockIndex !== ref.blockIndex;
-    const nextBlockType: BlockType | undefined = lastInBlock ? nextRef?.block.type : ref.block.type;
-    const segs = buildSegments({
-      block: ref.block,
-      sentence: ref.sentence,
-      lastInBlock,
-      nextBlockType,
+    const segs = sentenceSegments(this.nav, sentence, {
       pacing: this.settings.pacing,
-      normalize: { lexicon: this.lexicon, skips: inlineSkips(this.settings.skipRules) },
+      lexicon: this.lexicon,
+      skipRules: this.settings.skipRules,
       maxChars: this.deps.engine.caps.maxChars,
       fastStart: sentence === this.fastStartSentence,
-      sayInstead: skipAnnouncement(ref.block, this.settings.skipRules),
     });
     this.segments.set(sentence, segs);
     return segs;
@@ -385,42 +374,29 @@ export class Player {
     const { cursor, voice, modelSpeed } = this.parseKey(key);
     const segment = this.segmentsFor(cursor.sentence)[cursor.part];
     if (!segment) throw new Error(`No segment at ${key}`);
-    const engine = this.deps.engine;
-    if (engine.caps.live) return this.planLive(segment, voice);
-    const ck = cacheKey({
-      engineId: engine.id,
-      modelId: this.deps.model.modelId,
-      modelVersion: this.deps.model.version,
-      voiceId: voice,
-      speed: modelSpeed,
-      normalizerVersion: NORMALIZER_VERSION,
-      spokenText: segment.spoken,
-    });
-    let result: SynthesisResult | undefined;
-    let fromCache = false;
-    const hit = await this.deps.cache?.get(ck);
-    if (hit) {
-      result = { pcm: int16ToFloat(hit.pcm), sampleRate: hit.sampleRate, words: hit.words };
-      fromCache = true;
-      this.counters.cacheHits++;
-    } else {
-      const t0 = this.now();
-      result = await engine.synthesize(
-        { text: segment.spoken, voiceId: voice, speed: modelSpeed, lang: this.deps.doc.lang },
-        signal,
-      );
-      this.sampleRtf((this.now() - t0) / 1000, result.pcm.length / result.sampleRate);
-      void this.deps.cache?.put(ck, {
-        pcm: floatToInt16(result.pcm),
-        sampleRate: result.sampleRate,
-        words: result.words,
-      });
-    }
-    const raw = result.words ?? this.estimate(segment, result);
-    const audio = postProcess(result.pcm, result.sampleRate, raw, {
-      pauseAfter: segment.pauseAfter / modelSpeed,
-    });
-    return { segment, audio, sync: this.syncWords(segment, audio.words), modelSpeed, fromCache };
+    if (this.deps.engine.caps.live) return this.planLive(segment, voice);
+    const r = await renderSegment(
+      {
+        engine: this.deps.engine,
+        model: this.deps.model,
+        cache: this.deps.cache,
+        lang: this.deps.doc.lang,
+        now: this.now,
+      },
+      segment,
+      voice,
+      modelSpeed,
+      signal,
+    );
+    if (r.fromCache) this.counters.cacheHits++;
+    if (r.synth) this.sampleRtf(r.synth.seconds, r.synth.audioSeconds);
+    return {
+      segment,
+      audio: r.audio,
+      sync: this.syncWords(segment, r.audio.words),
+      modelSpeed,
+      fromCache: r.fromCache,
+    };
   }
 
   /** Rolling RTF for Diagnostics, and the "voice is too slow" suggestion (§6.4.4). */
@@ -460,20 +436,6 @@ export class Player {
       modelSpeed: 1,
       fromCache: false,
     };
-  }
-
-  private estimate(segment: SpokenSegment, r: SynthesisResult): WordTiming[] {
-    const words = segment.words.map((w) => ({ start: w.spokenStart, end: w.spokenEnd }));
-    // Spread words over the voiced region only, not the engine's leading/trailing silence.
-    const voiced = trimSilence(r.pcm, r.sampleRate, { marginMs: 0 });
-    return estimateTimings({
-      spoken: segment.spoken,
-      words,
-      voicedStart: voiced.trimmedStart / r.sampleRate,
-      voicedEnd: (r.pcm.length - voiced.trimmedEnd) / r.sampleRate,
-      pcm: r.pcm,
-      sampleRate: r.sampleRate,
-    });
   }
 
   /** Engine word timings (spoken offsets) → display ranges for highlighting. */

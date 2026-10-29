@@ -10,13 +10,22 @@ import type { InstalledIndex } from '@/core/models/manager';
 import { INSTALLED_KEY } from '@/core/models/manager';
 import type { PlayerEvent, PlayerStateValue } from '@/core/player/machine';
 import { ClockFollower, type SyncEvent } from '@/core/player/sync';
+import {
+  checkSleep,
+  SLEEP_SETTLED_STATES,
+  startSleep,
+  type SleepChoice,
+  type SleepTimer,
+} from '@/core/player/sleep';
 import { applySkipRules, DEFAULT_SKIP_RULES, type SkipRules } from '@/core/text/skip';
+import { downloadAndWait } from '@/platform/downloads';
+import { IdbLexicon } from '@/platform/lexicon';
 import { savePdf } from '@/platform/documents';
 import { localStore } from '@/platform/kv';
 import { IdbLibrary } from '@/platform/library';
 import { loadSettings } from '@/platform/settings';
 import { createInPageHost, type InPageHost } from '@/runtime/inpageHost';
-import type { HostEvent } from '@/runtime/protocol';
+import type { ExportFormat, ExportStatus, HostEvent } from '@/runtime/protocol';
 import { sessionSettingsFrom } from '@/runtime/sessionSettings';
 import { CursorOverlay } from '@/web/cursor';
 import { FollowScroller } from '@/web/follow';
@@ -48,6 +57,10 @@ export interface ReaderState {
   layoutMs: number;
   /** Pages without text (need OCR). */
   emptyPages: number[];
+  sleep: SleepTimer | null;
+  /** Rules chosen for this PDF (null: the defaults from Settings). */
+  docRules: SkipRules | null;
+  exportJob: ExportStatus | null;
 }
 
 const INITIAL: ReaderState = {
@@ -73,6 +86,9 @@ const INITIAL: ReaderState = {
   firstPageMs: 0,
   layoutMs: 0,
   emptyPages: [],
+  sleep: null,
+  docRules: null,
+  exportJob: null,
 };
 
 export class ReaderController {
@@ -138,6 +154,8 @@ export class ReaderController {
       this.opened = opened;
       this.map = new TextLayerMap(opened.pages, (p) => this.view?.pageDiv(p));
       const settings = await loadSettings();
+      const docRules = (await this.library.getRules(id)) ?? null;
+      const rules = docRules ?? settings.skipRules;
       this.set({
         phase: 'ready',
         title: opened.doc.title,
@@ -146,10 +164,11 @@ export class ReaderController {
         firstPageMs: Math.round(opened.firstPageMs),
         layoutMs: Math.round(opened.layoutMs),
         emptyPages: opened.layout.emptyPages,
-        rules: settings.skipRules,
+        rules,
+        docRules,
       });
       const saved = await this.library.getPosition(id);
-      await this.load(settings.skipRules, saved ? undefined : 0, saved);
+      await this.load(rules, saved ? undefined : 0, saved);
       // Opened documents join the library right away, so they can be reopened offline.
       const first = this.nav?.position(this.state.sentence, 0);
       if (first)
@@ -177,6 +196,7 @@ export class ReaderController {
       await loadSettings(),
       installed,
       import.meta.env.MODE === 'test',
+      await new IdbLexicon().list(),
     );
     await this.host.load(this.doc, {
       start: start.index,
@@ -187,13 +207,72 @@ export class ReaderController {
     if (saved) this.scrollToSentence(start.index);
   }
 
-  async setRules(rules: SkipRules): Promise<void> {
+  /** Rules for this PDF only; null returns to the defaults from Settings. */
+  async setRules(rules: SkipRules | null): Promise<void> {
+    const id = this.state.docId;
+    if (id) await this.library.saveRules(id, rules);
+    const applied = rules ?? (await loadSettings()).skipRules;
+    this.set({ docRules: rules });
     const at = this.nav?.at(this.state.sentence);
     const wasPlaying = this.state.state === 'playing';
-    await this.load(rules);
+    await this.load(applied);
     const i = at ? this.nav?.sentenceAtOffset(at.block.id, at.sentence.start) : undefined;
     if (i !== undefined) this.send({ type: 'SEEK', sentence: i });
     if (wasPlaying) this.send({ type: 'PLAY' });
+  }
+
+  /** Pronunciations or packs changed in Settings: re-plan with the new lexicon. */
+  async refreshLexicon(): Promise<void> {
+    const h = this.host;
+    if (!h) return;
+    const s = await loadSettings();
+    await h.runtime.handle({
+      type: 'SET_LEXICON',
+      sessionId: h.sessionId,
+      lexicon: { user: await new IdbLexicon().list(), packs: s.packs },
+    });
+  }
+
+  setSleep(choice: SleepChoice | null): void {
+    const nav = this.nav;
+    this.set({
+      sleep: choice && nav ? startSleep(choice, Date.now(), nav, this.state.sentence) : null,
+    });
+  }
+
+  exportAudio(format: ExportFormat): void {
+    const h = this.host;
+    if (!h) return;
+    const jobId = crypto.randomUUID();
+    this.set({ exportJob: { jobId, format, state: 'running', phase: 'render', fraction: 0 } });
+    void h.runtime.handle({
+      type: 'EXPORT',
+      sessionId: h.sessionId,
+      jobId,
+      format,
+      artist: 'Open Reader',
+    });
+  }
+
+  cancelExport(): void {
+    const j = this.state.exportJob;
+    if (j?.state === 'running')
+      void this.host?.runtime.handle({ type: 'EXPORT_CANCEL', jobId: j.jobId });
+  }
+
+  private async onExport(status: ExportStatus, url?: string): Promise<void> {
+    if (this.state.exportJob?.jobId !== status.jobId) return;
+    this.set({ exportJob: status });
+    if (status.state !== 'done' || !url) return;
+    try {
+      await downloadAndWait(url, status.filename ?? `audiobook.${status.format}`);
+      this.set({ notice: `Saved “${status.filename ?? 'audiobook'}” to Downloads.` });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      this.set({ exportJob: { ...status, state: 'error', message } });
+    } finally {
+      void this.host?.runtime.handle({ type: 'EXPORT_RELEASE', jobId: status.jobId });
+    }
   }
 
   // ── transport ─────────────────────────────────────────────────────────────
@@ -229,7 +308,22 @@ export class ReaderController {
   // ── host events ───────────────────────────────────────────────────────────
 
   private onHost(e: HostEvent): void {
+    if (e.type === 'EXPORT') void this.onExport(e.status, e.url);
     if (e.type === 'STATUS') {
+      const sleep = this.state.sleep;
+      if (sleep && this.nav && SLEEP_SETTLED_STATES.has(e.status.state)) {
+        const r = checkSleep(sleep, {
+          now: Date.now(),
+          nav: this.nav,
+          sentence: e.status.cursor.sentence,
+          playing: e.status.state === 'playing',
+        });
+        if (r !== 'keep') this.set({ sleep: null });
+        if (r === 'fire') {
+          this.send({ type: 'SLEEP_TIMER_FIRED' });
+          this.set({ notice: 'Sleep timer: reading paused.' });
+        }
+      }
       this.set({
         state: e.status.state,
         sentence: e.status.cursor.sentence,

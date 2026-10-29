@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>How a PSBT moves between wallets</title>
+  </head>
+  <body>
+    <nav><a href="/">Home</a> <a href="/about">About</a></nav>
+    <article>
+      <h1>How a partially signed Bitcoin transaction moves between wallets</h1>
+      <p>
+        A PSBT is a container for a transaction that is not finished yet. Each wallet that touches
+        it adds what it knows. Nobody has to trust anybody else with private keys.
+      </p>
+      <h2>The four roles</h2>
+      <ul>
+        <li>The creator proposes the inputs and outputs.</li>
+        <li>The updater adds UTXO data, scripts and derivation paths.</li>
+        <li>Each signer checks the amounts and adds a partial signature.</li>
+        <li>The finalizer assembles the witness and extracts the transaction.</li>
+      </ul>
+      <h2>Why hardware wallets like it</h2>
+      <p>
+        A signing device can show the real fee before it signs, because the PSBT carries the full
+        previous outputs. That closes the fee-inflation attack that once affected SegWit signers. It
+        also means an air-gapped device can sign from a QR code or an SD card.
+      </p>
+      <p>
+        Taproot added fields for key paths, script paths and MuSig2 nonces. Most wallets released
+        after 2024 read them. Older firmware may silently drop what it does not understand.
+      </p>
+    </article>
+    <footer>Copyright notice that should not be read.</footer>
+  </body>
+</html>

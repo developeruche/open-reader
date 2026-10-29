@@ -7,7 +7,7 @@
 - [x] M2: Design system and app shells
 - [x] M3: Document model and text pipeline
 - [x] M4: Audio pipeline and player core
-- [ ] M5: Extension runtime, hosts and messaging
+- [x] M5: Extension runtime, hosts and messaging
 - [ ] M6: Model manager and the default engine (Kokoro)
 - [ ] M7: Piper, system voices and the voice bake-off
 - [ ] M8: Web mode, end to end
@@ -58,6 +58,19 @@ Throwaway code under `spikes/` (excluded from build, lint and typecheck). Reprod
 `pnpm spikes:setup && pnpm spikes:build && pnpm spikes:run`; results land in `spikes/out/` (gitignored).
 
 ## Manual QA scripts
+
+### M5
+
+The voice is still the TestEngine tone (real voices arrive in M6/M7), so you hear a quiet beep
+per word.
+
+1. `pnpm build`, reload the unpacked extension.
+2. Open any article, right-click the page → **Read page from here**: the side panel opens and a
+   tone starts (the side panel UI is still mock data until M8).
+3. Press Alt+Shift+P: playback pauses; press again: it resumes.
+4. Alt+Shift+Period / Alt+Shift+Comma: next / previous sentence (tone restarts).
+5. Select a paragraph, right-click → **Read selection aloud**: only that text is read.
+6. Pause, wait a minute, press Alt+Shift+P: playback resumes where it stopped.
 
 ### M2
 

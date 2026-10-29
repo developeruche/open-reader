@@ -1,3 +1,3 @@
-export default defineBackground(() => {
-  void browser.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
-});
+import { startBackground } from '@/platform/background';
+
+export default defineBackground(() => startBackground());

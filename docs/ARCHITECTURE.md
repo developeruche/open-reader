@@ -51,3 +51,19 @@ Navigator ─▶ Player.segmentsFor() ─▶ PrefetchScheduler ─▶ engine.syn
 - `src/engines/test`: the deterministic TestEngine; `src/engines/rpc.ts`: worker RPC;
   `src/engines/playback/rendered.ts`: dual-`HTMLAudioElement` backend.
 - `src/platform/audioCache.ts`: IndexedDB cache (`open-reader` db).
+
+## Runtime (M5)
+
+```text
+UI (side panel, options) ──port `ui`──▶ background: Orchestrator ◀──port `content`── content script
+                                          │  ▲                                   (extract, highlight)
+                         port `engine-host`│  │ STATUS / SYNC / POSITION / NOTICE
+                                          ▼  │
+                                 offscreen.html: HostRuntime → Player → engine worker (comlink)
+reader.html: HostRuntime (in-page) ──port `inpage-host`──▶ background (arbitration only)
+```
+
+- `src/runtime/`: `protocol.ts`, `orchestrator.ts`, `hostRuntime.ts`, `inpageHost.ts` (no chrome.*).
+- `src/platform/`: `background.ts` (wiring), `offscreen.ts`, `ports.ts` (reconnecting ports),
+  `session.ts` (storage.session), `library.ts` (IndexedDB library).
+- `src/engines/factory.ts`: creates engines in workers.

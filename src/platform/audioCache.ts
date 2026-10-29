@@ -1,3 +1,4 @@
+import type { ReadingPosition } from '@/core/document/model';
 /** IndexedDB synthesis cache (`open-reader` db, `audio` store) with LRU eviction by bytes. */
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import {
@@ -11,20 +12,36 @@ interface AudioRow extends CacheEntry {
   key: string;
 }
 
+export interface LibraryRow {
+  docId: string;
+  title: string;
+  kind: 'web' | 'pdf';
+  url?: string;
+  position: ReadingPosition;
+  updatedAt: number;
+}
+
 export interface OpenReaderDB extends DBSchema {
   audio: { key: string; value: AudioRow; indexes: { lastUsed: number } };
   meta: { key: string; value: number };
+  library: { key: string; value: LibraryRow; indexes: { updatedAt: number } };
 }
 
 export const DB_NAME = 'open-reader';
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 
 export function openReaderDb(name = DB_NAME): Promise<IDBPDatabase<OpenReaderDB>> {
   return openDB<OpenReaderDB>(name, DB_VERSION, {
-    upgrade(db) {
-      const audio = db.createObjectStore('audio', { keyPath: 'key' });
-      audio.createIndex('lastUsed', 'lastUsed');
-      db.createObjectStore('meta');
+    upgrade(db, oldVersion) {
+      if (oldVersion < 1) {
+        const audio = db.createObjectStore('audio', { keyPath: 'key' });
+        audio.createIndex('lastUsed', 'lastUsed');
+        db.createObjectStore('meta');
+      }
+      if (oldVersion < 2) {
+        const library = db.createObjectStore('library', { keyPath: 'docId' });
+        library.createIndex('updatedAt', 'updatedAt');
+      }
     },
   });
 }

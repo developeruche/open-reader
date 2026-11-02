@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReadingDocument } from '@/core/document/model';
 import { ClockFollower } from '@/core/player/sync';
 import { connectWithRetry, type ReconnectingPort } from '@/platform/ports';
-import { targetTabId } from '@/platform/tabs';
+import { watchActiveTab, type ActiveTab } from '@/platform/tabs';
 import {
   PORT,
   type SessionInfo,
@@ -24,7 +24,7 @@ export function useSession() {
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [doc, setDoc] = useState<ReadingDocument | null>(null);
   const [live, setLive] = useState<LiveWord>({ sentenceId: null, word: -1 });
-  const [tabId, setTabId] = useState<number | undefined>(undefined);
+  const [active, setActive] = useState<ActiveTab>({});
   const portRef = useRef<ReconnectingPort<UiMessage> | null>(null);
   const follower = useRef(new ClockFollower()).current;
 
@@ -62,12 +62,14 @@ export function useSession() {
       },
     });
     portRef.current = port;
-    void targetTabId().then((t) => {
-      tab = t;
-      setTabId(t);
+    // The side panel follows the tab in front (switching tabs, navigating, closing).
+    const unwatch = watchActiveTab((t) => {
+      tab = t.tabId;
+      setActive(t);
     });
     return () => {
       cancelAnimationFrame(raf);
+      unwatch();
       port.close();
     };
   }, [follower]);
@@ -82,7 +84,9 @@ export function useSession() {
     doc: session && doc?.id === session.docId ? doc : null,
     view,
     live,
-    tabId,
+    /** The tab in front of this window, which "Read this page" acts on. */
+    active,
+    tabId: active.tabId,
     send,
   };
 }

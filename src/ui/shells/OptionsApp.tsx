@@ -2,11 +2,12 @@ import { useEffect, useState, type ReactNode } from 'react';
 import type { Settings } from '@/core/settings';
 import type { SkipRules } from '@/core/text/skip';
 import { loadSettings, saveSettings } from '@/platform/settings';
-import { Ban, Gauge, HardDrive, Info, Keyboard, Mic, Stethoscope, Type } from '../icons';
-import { Kbd, Select, Skeleton, SkipLink, Slider, Toggle } from '../components';
+import { Ban, FileText, Gauge, HardDrive, Info, Keyboard, Mic, Stethoscope, Type } from '../icons';
+import { Button, Kbd, Select, Skeleton, SkipLink, Slider, Toggle } from '../components';
 import { cn } from '../cn';
 import { formatRate } from '../format';
 import { environmentInfo } from '@/platform/environment';
+import { openReader } from '@/platform/tabs';
 import { VoicesSection } from '../models/VoicesSection';
 import { DiagnosticsSection } from './DiagnosticsSection';
 import { PronunciationsSection } from './PronunciationsSection';
@@ -296,6 +297,12 @@ export function OptionsApp({ useAppearance }: { useAppearance: useAppearanceHook
             </li>
           ))}
         </ul>
+        <div className="mt-6 px-3">
+          <Button className="w-full justify-start" onClick={() => openReader()}>
+            <FileText size={16} aria-hidden />
+            Open a PDF
+          </Button>
+        </div>
         <div className="mt-auto px-3">
           <Select
             label="Theme"

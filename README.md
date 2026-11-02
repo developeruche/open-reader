@@ -39,14 +39,20 @@ leaves your computer.
 
 ## Everyday use
 
-- **Read a web page:** click the toolbar icon (or press Alt+Shift+O) and press **Read this page**.
-  You can also right-click and choose **Read page from here** or **Read selection aloud**.
-- **Jump around:** click any sentence in the side panel, or Alt+click a word on the page. Select
-  text and press **Play from here**.
-- **Read a PDF:** open it in Chrome and choose **Open in Open Reader** in the side panel, use **Open
-  a PDF…** from the side panel menu, or drop a file on the reader page. Two-column layouts,
+- **Read a web page:** open the article, click the Open Reader icon, and press **Read this page**.
+  Or press Alt+Shift+P on the page, or right-click the icon and choose **Read this page**. The side
+  panel always shows the tab in front: switch to another article and press **Read this page** to
+  hear it instead. Whatever is playing elsewhere stays in a bar at the top, with **Go to tab**.
+- **Read a PDF:** press the PDF button at the top of the side panel (or **Open a PDF from your
+  computer**, or right-click the Open Reader icon → **Open a PDF…**) and choose a file or drop it
+  on the page. For a PDF open in a tab, the side panel offers **Read this PDF**. Two-column layouts,
   running headers, page numbers and references are handled, and scanned pages are recognized on
   your device. Options → Reading rules can open every PDF link in Open Reader.
+- **Pick up where you left off:** the side panel's **Recent** list reopens an article at your
+  position, or a PDF from its saved copy. Closing a tab ends its reading, and reading it again
+  later resumes.
+- **Jump around:** click any sentence in the side panel, or Alt+click a word on the page. Select
+  text and press **Play from here**.
 - **Speed, voice, pauses:** in the side panel or the floating player, from 0.5× to 4×.
 - **Sleep timer, rules for one page, audiobook export:** side panel → **Settings**, or the reader's
   **Reading options** drawer. Exports are MP3 (64 kbps, with a chapter per heading) or WAV at

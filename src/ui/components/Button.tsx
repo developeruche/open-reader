@@ -2,7 +2,7 @@ import { forwardRef, type ButtonHTMLAttributes } from 'react';
 import { cn } from '../cn';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost';
-export type ButtonSize = 'sm' | 'md';
+export type ButtonSize = 'sm' | 'md' | 'lg';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
@@ -18,6 +18,8 @@ const VARIANTS: Record<ButtonVariant, string> = {
 const SIZES: Record<ButtonSize, string> = {
   sm: 'h-8 px-3 text-[13px]',
   md: 'h-9 px-4 text-sm',
+  /** Full-width main actions (the side panel's Read this page). */
+  lg: 'h-11 w-full px-4 text-[15px]',
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(

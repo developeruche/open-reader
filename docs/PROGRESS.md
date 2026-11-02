@@ -20,15 +20,16 @@
 
 ## Decisions
 
-| ADR                                                     | Decision                                                                                                     |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| [0001](adr/0001-toolchain-versions.md)                  | TypeScript 6.0 and ESLint 9 (newest typescript-eslint and jsx-a11y support)                                  |
-| [0002](adr/0002-ui-skills.md)                           | UI skills vendored at project scope from pinned commits; `minimalist-ui` now lives in `taste-skill-classics` |
-| [0016](adr/0016-document-mode.md)                       | PDF layout analysis, text-layer mapping, OPFS document store and opt-in PDF interception                     |
-| [0017](adr/0017-reliability-diagnostics-and-budgets.md) | Fallback ladder, diagnostics, budgets, soak test, SLO results; COOP/COEP stays off; memory miss plan         |
-| [0018](adr/0018-onnx-external-data-and-idle-release.md) | WebGPU weights load as external data (WASM heap 757 → 33 MB); idle engines released after 5 min              |
-| [0019](adr/0019-power-features-and-audiobook-export.md) | Pronunciation editor, per-document rules, sleep timer, audiobook export (−17 LUFS, MP3/WAV, chapters)        |
-| [0020](adr/0020-offline-ocr.md)                         | Offline OCR with bundled tesseract.js: OCR words become PDF items, own text layer, per-page cache            |
+| ADR                                                     | Decision                                                                                                        |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| [0001](adr/0001-toolchain-versions.md)                  | TypeScript 6.0 and ESLint 9 (newest typescript-eslint and jsx-a11y support)                                     |
+| [0002](adr/0002-ui-skills.md)                           | UI skills vendored at project scope from pinned commits; `minimalist-ui` now lives in `taste-skill-classics`    |
+| [0016](adr/0016-document-mode.md)                       | PDF layout analysis, text-layer mapping, OPFS document store and opt-in PDF interception                        |
+| [0017](adr/0017-reliability-diagnostics-and-budgets.md) | Fallback ladder, diagnostics, budgets, soak test, SLO results; COOP/COEP stays off; memory miss plan            |
+| [0018](adr/0018-onnx-external-data-and-idle-release.md) | WebGPU weights load as external data (WASM heap 757 → 33 MB); idle engines released after 5 min                 |
+| [0019](adr/0019-power-features-and-audiobook-export.md) | Pronunciation editor, per-document rules, sleep timer, audiobook export (−17 LUFS, MP3/WAV, chapters)           |
+| [0020](adr/0020-offline-ocr.md)                         | Offline OCR with bundled tesseract.js: OCR words become PDF items, own text layer, per-page cache               |
+| [0021](adr/0021-ux-follow-the-tab.md)                   | The side panel follows the tab in front; sessions end with their page; PDF entry points everywhere; Recent list |
 
 ## UI/UX skills installed (M0)
 
@@ -85,6 +86,18 @@ Throwaway code under `spikes/` (excluded from build, lint and typecheck). Reprod
 `pnpm spikes:setup && pnpm spikes:build && pnpm spikes:run`; results land in `spikes/out/` (gitignored).
 
 ## Manual QA scripts
+
+### Post-1.0 UX pass (ADR 0021)
+
+1. Read an article, pause, switch to another article tab: the panel shows a bar "Paused in another
+   tab" and the new page with **Read this page**. Press it: the new article plays.
+2. Close the first article's tab, or open a different page in it: its reading ends; nothing old
+   resumes on Play.
+3. On a new article with something paused elsewhere, press Alt+Shift+P: it reads the new page.
+4. The PDF button at the top of the panel, ⋯ → **Open a PDF…**, and right-click on the toolbar icon
+   → **Open a PDF…** all open the reader (not Settings).
+5. Open `chrome://extensions` with the panel open: it says the page can't be read and offers a PDF.
+6. **Recent** in the panel: an article reopens at your position; a PDF opens in the reader.
 
 ### M14 (release check)
 

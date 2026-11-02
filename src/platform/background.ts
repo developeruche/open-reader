@@ -23,7 +23,13 @@ import {
   type UiUpdate,
 } from '@/runtime/protocol';
 
-const MENU = { selection: 'read-selection', page: 'read-page', pdfLink: 'read-pdf-link' } as const;
+const MENU = {
+  selection: 'read-selection',
+  page: 'read-page',
+  pdfLink: 'read-pdf-link',
+  actionPdf: 'action-open-pdf',
+  actionRead: 'action-read-page',
+} as const;
 const TEST = import.meta.env.MODE === 'test';
 
 /** Wires the orchestrator to chrome.* (ports, commands, menus, side panel). */
@@ -84,6 +90,7 @@ export function startBackground(): void {
       return sessionSettingsFrom(await loadSettings(), installed, TEST, await lexicon.list());
     },
     download: downloadAndWait,
+    openTab,
     async activeTabId() {
       const [tab] = await browser.tabs.query({ active: true, lastFocusedWindow: true });
       return tab?.id;
@@ -197,6 +204,12 @@ export function startBackground(): void {
 
   browser.commands.onCommand.addListener((name) => void orch.keyboardCommand(name));
 
+  // A session ends when its tab closes or leaves the page (the side panel then offers the new one).
+  browser.tabs.onRemoved.addListener((tabId) => void orch.tabGone(tabId));
+  browser.tabs.onUpdated.addListener((tabId, change) => {
+    if (change.url) void orch.tabGone(tabId, change.url);
+  });
+
   browser.runtime.onInstalled.addListener((details) => {
     if (details.reason === 'install' && !TEST)
       void browser.tabs.create({ url: browser.runtime.getURL('/onboarding.html') });
@@ -211,6 +224,17 @@ export function startBackground(): void {
         title: 'Read page from here',
         contexts: ['page'],
       });
+      // Right-click on the toolbar icon.
+      browser.contextMenus.create({
+        id: MENU.actionRead,
+        title: 'Read this page',
+        contexts: ['action'],
+      });
+      browser.contextMenus.create({
+        id: MENU.actionPdf,
+        title: 'Open a PDF…',
+        contexts: ['action'],
+      });
       browser.contextMenus.create({
         id: MENU.pdfLink,
         title: 'Read PDF in Open Reader',
@@ -222,6 +246,15 @@ export function startBackground(): void {
 
   browser.contextMenus.onClicked.addListener((info, tab) => {
     const tabId = tab?.id;
+    if (info.menuItemId === MENU.actionPdf) {
+      void browser.tabs.create({ url: browser.runtime.getURL('/reader.html') });
+      return;
+    }
+    if (info.menuItemId === MENU.actionRead && tabId !== undefined) {
+      void browser.sidePanel.open({ tabId }).catch(() => undefined);
+      void orch.readTab(tabId, { fromSelection: false, fromHere: false });
+      return;
+    }
     if (info.menuItemId === MENU.pdfLink && info.linkUrl) {
       void browser.tabs.create({
         url: browser.runtime.getURL(`/reader.html?src=${encodeURIComponent(info.linkUrl)}`),
@@ -254,4 +287,27 @@ export function startBackground(): void {
       },
     });
   }
+}
+
+/** Focuses a tab already showing `url`, or opens one, and resolves once it has loaded. */
+async function openTab(url: string): Promise<number | undefined> {
+  const base = url.split('#')[0];
+  const open = (await browser.tabs.query({})).find((t) => t.url?.split('#')[0] === base);
+  const tab = open
+    ? await browser.tabs.update(open.id ?? -1, { active: true })
+    : await browser.tabs.create({ url, active: true });
+  const id = tab?.id;
+  if (id === undefined || tab?.status === 'complete') return id;
+  return new Promise((resolve) => {
+    const done = (tabId: number, change: { status?: string }) => {
+      if (tabId !== id || change.status !== 'complete') return;
+      browser.tabs.onUpdated.removeListener(done);
+      resolve(id);
+    };
+    browser.tabs.onUpdated.addListener(done);
+    setTimeout(() => {
+      browser.tabs.onUpdated.removeListener(done);
+      resolve(id);
+    }, 20_000);
+  });
 }

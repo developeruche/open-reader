@@ -8,6 +8,7 @@ import { Navigator } from '@/core/document/positions';
 import { DiagLog, type LogEntry } from '@/core/diagnostics/log';
 import { applySkipRules, DEFAULT_SKIP_RULES, type SkipRules } from '@/core/text/skip';
 import { checkSleep, SLEEP_SETTLED_STATES, startSleep } from '@/core/player/sleep';
+import { sameDocument } from './tabKind';
 import type {
   ContentUpdate,
   HostCommand,
@@ -62,6 +63,8 @@ export interface OrchestratorDeps {
   debug?(e: DebugEvent): void;
   /** Saves a finished audiobook (chrome.downloads); resolves when the file is written. */
   download?(url: string, filename: string): Promise<void>;
+  /** Opens (or focuses) a tab on `url` and resolves with its id once the page has loaded. */
+  openTab?(url: string): Promise<number | undefined>;
 }
 
 export type DebugEvent =
@@ -77,6 +80,8 @@ export interface DiagnosticsReport {
   log: LogEntry[];
   droppedLogEntries: number;
 }
+
+const ACTIVE_STATES = new Set(['preparing', 'buffering', 'playing', 'seeking', 'retrying']);
 
 export class Orchestrator {
   session: SessionInfo | null = null;
@@ -300,6 +305,12 @@ export class Orchestrator {
       await this.deps.content.extract(cmd.tabId, cmd.fromSelection ?? false);
       return;
     }
+    if (cmd.type === 'READ_URL') {
+      // Recent articles: open the page and read it from where it was left.
+      const tabId = await this.deps.openTab?.(cmd.url);
+      if (tabId !== undefined) await this.deps.content.extract(tabId, false);
+      return;
+    }
     const s = this.session;
     if (!s) {
       if (cmd.type === 'PLAY' || cmd.type === 'TOGGLE') {
@@ -361,6 +372,15 @@ export class Orchestrator {
 
   /** chrome.commands (§4.5): toggle-play, next-sentence, prev-sentence. */
   async keyboardCommand(name: string): Promise<void> {
+    // Play anywhere: with nothing playing, the page you are on wins over a paused session elsewhere.
+    const s = this.session;
+    if (name === 'toggle-play' && s && !ACTIVE_STATES.has(s.state)) {
+      const tabId = await this.deps.activeTabId();
+      if (tabId !== undefined && tabId !== s.tabId) {
+        await this.deps.content.extract(tabId, false);
+        return;
+      }
+    }
     const map: Record<string, UiCommand> = {
       'toggle-play': { type: 'TOGGLE' },
       'next-sentence': { type: 'NEXT_SENTENCE' },
@@ -621,6 +641,28 @@ export class Orchestrator {
     } finally {
       this.sendTo(kind, { type: 'EXPORT_RELEASE', jobId: status.jobId });
     }
+  }
+
+  /**
+   * The session's tab closed, or navigated to another page: the article is gone, so the session
+   * ends (its position is already saved) and the side panel offers the page now in front.
+   */
+  async tabGone(tabId: number, url?: string): Promise<void> {
+    await this.restored;
+    const s = this.session;
+    if (!s || s.host !== 'offscreen' || s.tabId !== tabId) return;
+    if (url !== undefined && sameDocument(url, s.url)) return;
+    this.note('info', 'ui', url === undefined ? 'session tab closed' : 'session tab navigated');
+    this.sendTo('offscreen', { type: 'UNLOAD', sessionId: s.sessionId });
+    this.session = null;
+    this.nav = undefined;
+    await this.deps.store.saveSession(null);
+    this.deps.ui.broadcast({ type: 'SESSION', session: null });
+    if (url !== undefined)
+      this.deps.content.send(tabId, {
+        type: 'SESSION',
+        session: { active: false, docId: null, state: null, rate: 1 },
+      });
   }
 
   defaultSettings(): SessionSettings {

@@ -240,8 +240,8 @@ export function OnboardingApp() {
           <>
             <h1 className="font-serif text-3xl tracking-[-0.02em]">Ready</h1>
             <p className="mt-2 text-ink-2">
-              Open any article and press Alt+Shift+O, or right-click it and choose Read page from
-              here.
+              Open any article and press Alt+Shift+P to listen, or click the Open Reader icon and
+              choose Read this page. For a PDF, use Open a PDF in the side panel.
             </p>
           </>
         ) : null}

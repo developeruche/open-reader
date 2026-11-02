@@ -1,11 +1,12 @@
 /** The side panel (Web mode, PLAN.md §3.4.1) wired to the live reading session. */
 import { useCallback, useEffect, type ReactNode } from 'react';
 import { REGISTRY } from '@/engines/factory';
-import { isPdfUrl, openOptions, openReader, tabUrl } from '@/platform/tabs';
+import { openOptions, openReader } from '@/platform/tabs';
 import type { SessionInfo, UiCommand } from '@/runtime/protocol';
 import { DEFAULT_SKIP_RULES } from '@/core/text/skip';
-import { BookOpen, FileText, MoreHorizontal, Settings, SkipBack, SkipForward } from '../icons';
+import { FileText, MoreHorizontal, Settings, SkipBack, SkipForward } from '../icons';
 import { Button, EmptyState, IconButton, Menu, Select, Tabs, Toggle } from '../components';
+import { hostOf, NowPlayingBar, RecentList, ThisTabCard } from './SidePanelStart';
 import { DocRules, WEB_RULES } from '../controls/DocRules';
 import { EngineStatus } from '../controls/EngineStatus';
 import { ExportPanel } from '../controls/ExportPanel';
@@ -49,13 +50,12 @@ function voicesFor(s: SessionInfo | null): VoiceOption[] {
 }
 
 export function LiveSidePanel({ useAppearance }: { useAppearance: useAppearanceHook }) {
-  const { session, doc, view, live, tabId, send } = useSession();
+  const { session, doc, view, live, active, tabId, send } = useSession();
   const { theme, setTheme } = useAppearance();
   const [follow, setFollow] = useState(true);
-  const [pdfUrl, setPdfUrl] = useState<string | undefined>(undefined);
-  useEffect(() => {
-    if (tabId !== undefined) void tabUrl(tabId).then((u) => setPdfUrl(isPdfUrl(u) ? u : undefined));
-  }, [tabId]);
+  // The player shows the session only while its tab is in front; elsewhere the panel offers the
+  // tab you are looking at, with the session as a "now playing" bar (Speechify-style).
+  const here = !!session && (active.tabId === undefined || session.tabId === active.tabId);
   const playing = !!session && ACTIVE.has(session.state);
   const cmd = useCallback((c: UiCommand) => send(c), [send]);
   const readPage = () => tabId !== undefined && cmd({ type: 'READ_TAB', tabId });
@@ -83,7 +83,7 @@ export function LiveSidePanel({ useAppearance }: { useAppearance: useAppearanceH
         e.preventDefault();
         if (session) cmd({ type: 'TOGGLE' });
         else readPage();
-      } else if (map[e.key] && session) cmd(map[e.key] as UiCommand);
+      } else if (map[e.key] && session && here) cmd(map[e.key] as UiCommand);
       else if ((e.key === '-' || e.key === '=') && session)
         cmd({
           type: 'SET_SPEED',
@@ -113,53 +113,48 @@ export function LiveSidePanel({ useAppearance }: { useAppearance: useAppearanceH
   );
 
   const menu = (
-    <Menu
-      trigger={
-        <IconButton label="More" size="sm">
-          <MoreHorizontal size={18} aria-hidden />
-        </IconButton>
-      }
-      items={[
-        {
-          label: 'Open a PDF…',
-          icon: <FileText size={16} aria-hidden />,
-          onSelect: () => openOptions(''),
-        },
-        {
-          label: 'Settings',
-          icon: <Settings size={16} aria-hidden />,
-          onSelect: () => openOptions('voices'),
-        },
-      ]}
-    />
+    <div className="flex shrink-0 items-center gap-1">
+      <IconButton label="Open a PDF" size="sm" onClick={() => openReader()}>
+        <FileText size={18} aria-hidden />
+      </IconButton>
+      <Menu
+        trigger={
+          <IconButton label="More" size="sm">
+            <MoreHorizontal size={18} aria-hidden />
+          </IconButton>
+        }
+        items={[
+          {
+            label: 'Open a PDF…',
+            icon: <FileText size={16} aria-hidden />,
+            onSelect: () => openReader(),
+          },
+          {
+            label: 'Settings',
+            icon: <Settings size={16} aria-hidden />,
+            onSelect: () => openOptions('voices'),
+          },
+        ]}
+      />
+    </div>
   );
 
-  if (!session || !doc || !view) {
+  if (!session || !doc || !view || !here) {
     return (
-      <Frame header={<Header title="Open Reader" site="Read any article aloud" menu={menu} />}>
-        <main id="content" className="flex-1">
-          <EmptyState
-            icon={<BookOpen size={24} aria-hidden />}
-            title="Nothing is playing"
-            body={
-              session?.error ??
-              'Read the article in this tab, or open a PDF from your computer. You can also right-click any page and choose Read page from here, or Alt+click a word to start there.'
-            }
-            action={
-              pdfUrl ? (
-                <Button variant="primary" onClick={() => openReader(pdfUrl)}>
-                  Open in Open Reader
-                </Button>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="primary" onClick={readPage} disabled={tabId === undefined}>
-                    Read this page
-                  </Button>
-                  <Button onClick={() => openReader()}>Open a PDF…</Button>
-                </div>
-              )
-            }
-          />
+      <Frame
+        header={<Header title="Open Reader" site="Listen to any article or PDF" menu={menu} />}
+      >
+        {session && doc && !here ? (
+          <NowPlayingBar session={session} title={doc.title} send={cmd} />
+        ) : null}
+        <main id="content" className="flex-1 overflow-y-auto">
+          {session?.error && !doc ? (
+            <p className="mx-4 mt-4 text-[13px] text-ink-2" role="alert">
+              {session.error}
+            </p>
+          ) : null}
+          <ThisTabCard active={active} send={cmd} />
+          <RecentList exclude={session?.docId} send={cmd} />
         </main>
         <footer className="border-t border-line px-4 py-2.5">
           <EngineStatus state="ready" text="Offline ready" />
@@ -177,12 +172,7 @@ export function LiveSidePanel({ useAppearance }: { useAppearance: useAppearanceH
       first: view.toPlayer[view.viewIndexOf.get(b.sentences[0]?.id ?? '') ?? -1] ?? -1,
     }))
     .filter((x) => x.b.type === 'heading' && x.first >= 0);
-  let site = '';
-  try {
-    site = session.url ? new URL(session.url).hostname : '';
-  } catch {
-    site = '';
-  }
+  const site = hostOf(session.url);
 
   return (
     <Frame header={<Header title={doc.title} site={site} menu={menu} />}>
@@ -233,6 +223,12 @@ export function LiveSidePanel({ useAppearance }: { useAppearance: useAppearanceH
               style={{ transform: `scaleX(${total ? at / total : 0})` }}
             />
           </div>
+          {session.state === 'ended' ? (
+            <p className="mt-3 text-[13px] text-ink-2" role="status">
+              Finished. Press Play to listen again, or open another article and choose Read this
+              page.
+            </p>
+          ) : null}
           <div className="mt-2 flex justify-between text-xs text-muted tabular">
             <span>
               Sentence {at} of {total}

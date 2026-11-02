@@ -37,11 +37,27 @@ vi.mock('@/runtime/models', () => ({ playSample: vi.fn(async () => undefined) })
 let sent: unknown[] = [];
 let sessionState: Record<string, unknown> = {};
 vi.mock('@/ui/session/useSession', () => ({
-  useSession: () => ({ ...sessionState, send: (c: unknown) => sent.push(c) }),
+  useSession: () => ({ active: {}, ...sessionState, send: (c: unknown) => sent.push(c) }),
+}));
+vi.mock('@/platform/library', () => ({
+  IdbLibrary: class {
+    recent = async () => [
+      {
+        docId: 'w1',
+        kind: 'web',
+        title: 'Native AA breakouts',
+        url: 'https://ex.test/native-aa',
+        updatedAt: 0,
+      },
+      { docId: 'p1', kind: 'pdf', title: 'BIP 174', updatedAt: 0 },
+    ];
+  },
 }));
 vi.mock('@/platform/tabs', () => ({
   openOptions: vi.fn(),
   openReader: vi.fn(),
+  openReaderDoc: vi.fn(),
+  focusTab: vi.fn(async () => undefined),
   targetTabId: async () => 7,
   tabUrl: async () => 'https://example.com/',
   isPdfUrl: (u: string) => u.endsWith('.pdf'),
@@ -108,13 +124,47 @@ describe('LiveSidePanel', () => {
       view: null,
       live: { sentenceId: null, word: -1 },
       tabId: 7,
+      active: { tabId: 7, url: 'https://www.ex.test/pqts', title: 'PQTS breakouts' },
     };
-    wrap(<LiveSidePanel useAppearance={appearance()} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Open a PDF…' }));
-    const { openReader } = await import('@/platform/tabs');
-    expect(openReader).toHaveBeenCalledWith();
+    const { rerender } = wrap(<LiveSidePanel useAppearance={appearance()} />);
+    expect(screen.getByRole('heading', { name: 'PQTS breakouts' })).toBeTruthy();
+    expect(screen.getByText('ex.test')).toBeTruthy();
+    const tabs = await import('@/platform/tabs');
+    await userEvent.click(screen.getByRole('button', { name: 'Open a PDF from your computer' }));
+    expect(tabs.openReader).toHaveBeenCalledWith();
+    await userEvent.click(screen.getByRole('button', { name: 'Open a PDF' }));
+    expect(tabs.openReader).toHaveBeenCalledTimes(2);
     await userEvent.click(screen.getByRole('button', { name: 'Read this page' }));
     expect(sent).toContainEqual({ type: 'READ_TAB', tabId: 7 });
+    // Recent documents: an article reopens and reads; a PDF opens in the reader.
+    await userEvent.click(await screen.findByRole('button', { name: /Native AA breakouts/ }));
+    expect(sent).toContainEqual({ type: 'READ_URL', url: 'https://ex.test/native-aa' });
+    await userEvent.click(screen.getByRole('button', { name: /BIP 174/ }));
+    expect(tabs.openReaderDoc).toHaveBeenCalledWith('p1', 'BIP 174');
+
+    // A PDF tab offers the reader; a Chrome page explains why it can't be read.
+    sessionState = {
+      ...sessionState,
+      active: { tabId: 8, url: 'https://ex.test/paper.pdf', title: 'paper.pdf' },
+    };
+    rerender(
+      <TooltipProvider>
+        <LiveSidePanel useAppearance={appearance()} />
+      </TooltipProvider>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Read this PDF' }));
+    expect(tabs.openReader).toHaveBeenLastCalledWith('https://ex.test/paper.pdf');
+    sessionState = {
+      ...sessionState,
+      active: { tabId: 9, url: 'chrome://extensions/', title: 'Extensions' },
+    };
+    rerender(
+      <TooltipProvider>
+        <LiveSidePanel useAppearance={appearance()} />
+      </TooltipProvider>,
+    );
+    expect(screen.getByRole('heading', { name: "This page can't be read aloud" })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Read this page' })).toBeNull();
   });
 
   it('drives the session: transport, speed, outline, reader seek and keys', async () => {
@@ -362,5 +412,53 @@ describe('GalleryApp', () => {
     expect(await screen.findByText('WebGPU failed')).toBeTruthy();
     await userEvent.click(screen.getByRole('button', { name: 'Open dialog' }));
     expect(await screen.findByRole('dialog')).toBeTruthy();
+  });
+});
+
+describe('LiveSidePanel follows the tab in front', () => {
+  it('shows what plays in another tab and offers this tab', async () => {
+    const doc = {
+      id: 'd',
+      kind: 'web' as const,
+      title: 'PQTS breakouts',
+      lang: 'en',
+      blocks: [buildBlock({ id: 'p', type: 'paragraph', text: 'One sentence here.' })],
+    };
+    sessionState = {
+      session: {
+        sessionId: 's',
+        docId: 'd',
+        title: doc.title,
+        host: 'offscreen',
+        tabId: 3,
+        url: 'https://ex.test/pqts',
+        state: 'paused',
+        cursor: { sentence: 0, part: 0, word: 0 },
+        settings: { rate: 1, voice: 'test', pacing: 'natural', engineId: 'test' },
+        sentenceCount: 1,
+        hostLost: false,
+        error: null,
+        updatedAt: 0,
+      },
+      doc,
+      view: docView(doc),
+      live: { sentenceId: null, word: -1 },
+      tabId: 7,
+      active: { tabId: 7, url: 'https://ex.test/native-aa', title: 'Native AA breakouts' },
+    };
+    wrap(<LiveSidePanel useAppearance={appearance()} />);
+    const bar = screen.getByRole('region', { name: 'Now playing' });
+    expect(within(bar).getByText('Paused in another tab')).toBeTruthy();
+    expect(within(bar).getByText('PQTS breakouts')).toBeTruthy();
+    await userEvent.click(within(bar).getByRole('button', { name: 'Play' }));
+    expect(sent).toContainEqual({ type: 'TOGGLE' });
+    await userEvent.click(within(bar).getByRole('button', { name: 'Go to tab' }));
+    const tabs = await import('@/platform/tabs');
+    expect(tabs.focusTab).toHaveBeenCalledWith(3);
+    // This tab's article is one click away; the old one is not in Recent twice.
+    expect(screen.getByRole('heading', { name: 'Native AA breakouts' })).toBeTruthy();
+    await userEvent.click(screen.getByRole('button', { name: 'Read this page' }));
+    expect(sent).toContainEqual({ type: 'READ_TAB', tabId: 7 });
+    expect(screen.queryByRole('region', { name: 'Playback' })).toBeNull();
   });
 });

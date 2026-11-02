@@ -193,6 +193,8 @@ export const UiCommandSchema = z.union([
   z.object({ type: z.literal('SET_DOC_RULES'), rules: SkipRulesSchema.nullable() }),
   z.object({ type: z.literal('EXPORT'), format: z.enum(['mp3', 'wav']) }),
   z.object({ type: z.literal('EXPORT_CANCEL') }),
+  /** Open a recent article (or focus its tab) and read it. */
+  z.object({ type: z.literal('READ_URL'), url: z.string().regex(/^(https?|file):\/\//) }),
   /** Settings changed elsewhere (pronunciations, packs): apply them to the current session. */
   z.object({ type: z.literal('SETTINGS_CHANGED') }),
   /** Read the page in a tab (web mode). */
@@ -213,6 +215,7 @@ export type UiCommand =
   | { type: 'SET_DOC_RULES'; rules: SkipRules | null }
   | { type: 'EXPORT'; format: ExportFormat }
   | { type: 'EXPORT_CANCEL' }
+  | { type: 'READ_URL'; url: string }
   | { type: 'SETTINGS_CHANGED' }
   | { type: 'READ_TAB'; tabId: number; fromSelection?: boolean };
 

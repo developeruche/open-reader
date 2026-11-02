@@ -9,6 +9,7 @@ export default tseslint.config(
     ignores: [
       '.output/**',
       'open-reader-*-chrome/**',
+      'chrome-mv3/**',
       '.wxt/**',
       'node_modules/**',
       'coverage/**',

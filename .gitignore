@@ -3,6 +3,8 @@ node_modules
 .output
 # An unzipped release build loaded into Chrome
 open-reader-*-chrome/
+/chrome-mv3/
+/open-reader-*.zip
 .wxt
 stats.html
 stats-*.json

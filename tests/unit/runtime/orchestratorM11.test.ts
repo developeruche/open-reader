@@ -34,6 +34,10 @@ function harness() {
   const ui: UiUpdate[] = [];
   const downloads: [string, string][] = [];
   let failDownload = false;
+  let activeTab = 7;
+  const extracted: number[] = [];
+  const contentSent: [number, unknown][] = [];
+  const opened: string[] = [];
   const orch = new Orchestrator({
     store: {
       loadSession: async () => stored,
@@ -49,15 +53,22 @@ function harness() {
     },
     offscreen: { ensure: async () => undefined, exists: async () => true },
     ui: { broadcast: (u) => ui.push(u) },
-    content: { send: () => undefined, extract: async () => undefined },
+    content: {
+      send: (t, u) => void contentSent.push([t, u]),
+      extract: async (t) => void extracted.push(t),
+    },
     settings: async () => ({
       ...DEFAULT_SESSION_SETTINGS,
       skipRules: DEFAULT_SKIP_RULES,
       lexicon: { user: [{ id: 'x', match: 'npm', say: 'en pee em' }], packs: [] },
     }),
-    activeTabId: async () => 7,
+    activeTabId: async () => activeTab,
     now: () => now,
     newId: () => `id${sent.length}`,
+    openTab: async (url) => {
+      opened.push(url);
+      return 12;
+    },
     download: async (url, filename) => {
       if (failDownload) throw new Error('The download failed (disk full).');
       downloads.push([url, filename]);
@@ -84,6 +95,10 @@ function harness() {
     docs,
     tick: (ms: number) => (now += ms),
     failDownloads: () => (failDownload = true),
+    setActiveTab: (t: number) => (activeTab = t),
+    extracted,
+    contentSent,
+    opened,
     async start() {
       await orch.hostEvent('offscreen', { type: 'HELLO', host: 'offscreen', status: null });
       await orch.contentDoc(7, raw, 'https://x.test/a', undefined);
@@ -241,5 +256,52 @@ describe('Orchestrator: sleep timer across segment boundaries', () => {
     expect(h.orch.session?.sleep).not.toBeNull();
     await h.orch.hostEvent('offscreen', { type: 'STATUS', status: h.status(2, 'playing') });
     expect(h.sent.at(-1)).toMatchObject({ event: { type: 'SLEEP_TIMER_FIRED' } });
+  });
+});
+
+describe('Orchestrator: sessions follow their tab', () => {
+  it('ends the session when its tab closes, keeping other tabs untouched', async () => {
+    const h = harness();
+    await h.start();
+    await h.orch.tabGone(99);
+    expect(h.orch.session).not.toBeNull();
+    await h.orch.tabGone(7);
+    expect(h.orch.session).toBeNull();
+    expect(h.sent.at(-1)).toMatchObject({ type: 'UNLOAD' });
+    expect(h.ui.at(-1)).toEqual({ type: 'SESSION', session: null });
+  });
+
+  it('ends the session when its tab opens another page, but not for a #fragment', async () => {
+    const h = harness();
+    await h.start();
+    await h.orch.tabGone(7, 'https://x.test/a#section-2');
+    expect(h.orch.session).not.toBeNull();
+    await h.orch.tabGone(7, 'https://x.test/b');
+    expect(h.orch.session).toBeNull();
+    expect(h.contentSent.at(-1)).toEqual([
+      7,
+      { type: 'SESSION', session: { active: false, docId: null, state: null, rate: 1 } },
+    ]);
+  });
+
+  it('play-anywhere reads the page in front when the session elsewhere is paused', async () => {
+    const h = harness();
+    await h.start();
+    await h.orch.hostEvent('offscreen', { type: 'STATUS', status: h.status(1, 'paused') });
+    h.setActiveTab(9);
+    await h.orch.keyboardCommand('toggle-play');
+    expect(h.extracted).toEqual([9]);
+    // While playing, the shortcut pauses instead.
+    await h.orch.hostEvent('offscreen', { type: 'STATUS', status: h.status(1, 'playing') });
+    await h.orch.keyboardCommand('toggle-play');
+    expect(h.extracted).toEqual([9]);
+    expect(h.sent.at(-1)).toMatchObject({ type: 'PLAYER', event: { type: 'TOGGLE' } });
+  });
+
+  it('opens a recent article and reads it', async () => {
+    const h = harness();
+    await h.orch.command({ type: 'READ_URL', url: 'https://x.test/native-aa' });
+    expect(h.opened).toEqual(['https://x.test/native-aa']);
+    expect(h.extracted).toEqual([12]);
   });
 });

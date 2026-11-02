@@ -1,5 +1,5 @@
 import { test as base, chromium, type BrowserContext, type Worker } from '@playwright/test';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -25,6 +25,8 @@ export const test = base.extend<ExtensionFixtures>({
     });
     await use(context);
     await context.close();
+    // Each test gets a fresh profile (models included); delete it so runs don't fill the disk.
+    rmSync(userDataDir, { recursive: true, force: true, maxRetries: 3, retryDelay: 200 });
   },
   serviceWorker: async ({ context }, use) => {
     const sw = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));

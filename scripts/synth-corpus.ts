@@ -4,7 +4,7 @@
  * Writes quality/out/<run>/{*.wav, manifest.json, report.json, report.md}. Then:
  *   uv run --project quality python quality/asr_qa.py quality/out/<run>
  */
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { chromium, type Page } from '@playwright/test';
@@ -72,7 +72,8 @@ const call = <R>(page: Page, fn: string, ...args: unknown[]) =>
 async function main() {
   const server = await startModelServer(8767);
   const ext = path.resolve('output/chrome-mv3-test');
-  const ctx = await chromium.launchPersistentContext(mkdtempSync(path.join(tmpdir(), 'or-bake-')), {
+  const profile = mkdtempSync(path.join(tmpdir(), 'or-bake-'));
+  const ctx = await chromium.launchPersistentContext(profile, {
     channel: 'chromium',
     args: [`--disable-extensions-except=${ext}`, `--load-extension=${ext}`],
   });
@@ -171,6 +172,7 @@ async function main() {
   );
   console.log(`\nWrote ${out}`);
   await ctx.close();
+  rmSync(profile, { recursive: true, force: true });
   server.close();
 }
 

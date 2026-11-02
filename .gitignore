@@ -1,6 +1,6 @@
 # Dependencies and build output
 node_modules
-.output
+/output
 # An unzipped release build loaded into Chrome
 open-reader-*-chrome/
 /chrome-mv3/

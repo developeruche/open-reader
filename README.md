@@ -20,6 +20,12 @@ You need Chrome 116 or later on a desktop computer.
    `output/chrome-mv3` folder.
 3. Pin Open Reader from the puzzle-piece menu so its icon is always visible.
 
+**Updating:** after `pnpm build`, press the reload icon on the Open Reader card in
+`chrome://extensions`. The extension always has the same ID
+(`ciacahokbkkhcpoefghbmnmilbaalcem`, fixed by the manifest key), so voices, settings and stored
+PDFs survive rebuilds, and even loading the build from another folder. **Remove** deletes all of
+them, so prefer reload. Keep only one copy of Open Reader loaded at a time.
+
 To read PDFs stored on your computer, open the extension's **Details** and turn on **Allow access
 to file URLs**.
 
@@ -88,6 +94,7 @@ the page being read, in the side panel and in the reader.
 | "Switched to … because … failed"                 | The voice could not run on this backend, so the next one took over (WASM, then Piper, then system voices). Diagnostics has the details.                        |
 | No sound                                         | Check that the tab isn't muted and that the system output device is right. Options → Diagnostics shows the engine state.                                       |
 | Highlights are off on a page that changes itself | Some pages re-render while you read. Reading continues in the side panel; press **Read this page** again to re-attach.                                         |
+| The voice downloads again after every build      | Use the reload icon instead of **Remove** + **Load unpacked**. Builds before this change had a different ID per folder, each with its own storage.             |
 | Storage is full                                  | Options → Storage: lower the audio cache limit, clear it, or remove stored PDFs. Request persistent storage there so Chrome keeps models when space is low.    |
 
 Options → Diagnostics → **Copy diagnostics** puts a report on your clipboard. It never contains

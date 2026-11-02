@@ -24,6 +24,11 @@ OPFS `models/<modelId>/<version>/<path>`; the installed index is `models.install
 `chrome.storage.local`. `pnpm models:fetch [all|<id>…]` fills `models/cache/` for tests and
 `pnpm build:offline`.
 
+Storage belongs to the extension's origin (`chrome-extension://ciacahokbkkhcpoefghbmnmilbaalcem`;
+the manifest `key` pins the ID). Chrome deletes it all when the extension is removed, and
+Options → Voices & models → **Remove** or Options → Storage free parts of it. Nothing is written
+outside the browser profile.
+
 ## Adding a model
 
 1. Add an entry to `models/registry.json`: pin `url`s to a commit (`/resolve/<sha>/`), give each

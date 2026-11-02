@@ -10,7 +10,9 @@
 | `pnpm test:models`   | Real engines: install, synthesis, offline read and the §9.1 SLO measurements  |
 
 E2E uses a persistent Chromium context with `--load-extension`; the extension ID comes from the
-service worker URL.
+service worker URL (always `ciacahokbkkhcpoefghbmnmilbaalcem`). Each test's temporary profile is
+deleted when the test ends; before this, runs left one profile per test in the OS temp folder
+(52 GB had built up by 1.0.0, including installed models).
 
 ## Text pipeline tests
 

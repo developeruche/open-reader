@@ -1,1 +1,0 @@
-{"manifest_version":3,"name":"Open Reader spikes","version":"0.0.0","permissions":["offscreen","storage","unlimitedStorage","scripting","tabs"],"host_permissions":["<all_urls>"],"content_security_policy":{"extension_pages":"script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"},"background":{"service_worker":"background.js"}}

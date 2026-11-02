@@ -43,3 +43,5 @@ spikes/extension/public/headtts/
 spikes/extension/public/pdfjs/
 quality/.pytest_cache/
 **/__pycache__/
+
+/spike

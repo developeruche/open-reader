@@ -1,4 +1,4 @@
-.output
+output
 open-reader-*-chrome
 /chrome-mv3
 .wxt
@@ -8,6 +8,7 @@ test-results
 pnpm-lock.yaml
 public
 spikes
+spike
 tests/fixtures/**/*.json
 PLAN.md
 .claude

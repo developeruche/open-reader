@@ -10,5 +10,5 @@
     "types": ["node"]
   },
   "include": [".wxt/wxt.d.ts", "src", "tests", "scripts", "*.config.ts"],
-  "exclude": ["node_modules", ".output", "spikes"]
+  "exclude": ["node_modules", "output", "spikes"]
 }

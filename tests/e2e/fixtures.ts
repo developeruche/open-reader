@@ -3,7 +3,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-export const EXTENSION_PATH = path.resolve(process.env.EXTENSION_PATH ?? '.output/chrome-mv3-test');
+export const EXTENSION_PATH = path.resolve(process.env.EXTENSION_PATH ?? 'output/chrome-mv3-test');
 
 interface ExtensionFixtures {
   context: BrowserContext;

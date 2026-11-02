@@ -14,10 +14,10 @@ You need Chrome 116 or later on a desktop computer.
    pnpm install
    pnpm build
    ```
-   The extension is in `.output/chrome-mv3`. (`pnpm zip` makes `.output/open-reader-1.0.0-chrome.zip`;
+   The extension is in `output/chrome-mv3`. (`pnpm zip` makes `output/open-reader-1.0.0-chrome.zip`;
    unzip it first.)
 2. Open `chrome://extensions`, turn on **Developer mode**, press **Load unpacked**, and choose the
-   `.output/chrome-mv3` folder.
+   `output/chrome-mv3` folder.
 3. Pin Open Reader from the puzzle-piece menu so its icon is always visible.
 
 To read PDFs stored on your computer, open the extension's **Details** and turn on **Allow access
@@ -104,7 +104,7 @@ setting, stays in this Chrome profile.
 ```bash
 pnpm install
 pnpm dev            # Chrome with the extension loaded and HMR
-pnpm build          # .output/chrome-mv3
+pnpm build          # output/chrome-mv3
 ```
 
 ```bash

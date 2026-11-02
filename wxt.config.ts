@@ -71,6 +71,7 @@ function offlineModels(): [string, string][] {
 // See https://wxt.dev/api/config.html
 export default defineConfig({
   srcDir: 'src',
+  outDir: 'output',
   modules: ['@wxt-dev/module-react'],
   vite: () => ({
     plugins: [tailwindcss()],

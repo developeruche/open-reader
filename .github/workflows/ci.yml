@@ -38,7 +38,7 @@ jobs:
           path: |
             playwright-report
             coverage
-            .output/*.zip
+            output/*.zip
 
   models:
     if: github.event_name == 'workflow_dispatch' && inputs.models

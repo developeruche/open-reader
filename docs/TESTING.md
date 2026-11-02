@@ -1,13 +1,13 @@
 # Testing
 
-| Command              | What                                                                           |
-| -------------------- | ------------------------------------------------------------------------------ |
-| `pnpm test`          | Unit tests (Vitest, happy-dom, WXT `fakeBrowser`)                              |
-| `pnpm test:coverage` | Unit tests with coverage thresholds                                            |
-| `pnpm test:e2e`      | Builds the test-mode extension (`.output/chrome-mv3-test`) and runs Playwright |
-| `pnpm test:soak`     | The soak test for 10 minutes (the E2E run includes a 1-minute soak)            |
-| `pnpm budgets`       | Gzipped JS budgets of the production build (run after `pnpm build`)            |
-| `pnpm test:models`   | Real engines: install, synthesis, offline read and the §9.1 SLO measurements   |
+| Command              | What                                                                          |
+| -------------------- | ----------------------------------------------------------------------------- |
+| `pnpm test`          | Unit tests (Vitest, happy-dom, WXT `fakeBrowser`)                             |
+| `pnpm test:coverage` | Unit tests with coverage thresholds                                           |
+| `pnpm test:e2e`      | Builds the test-mode extension (`output/chrome-mv3-test`) and runs Playwright |
+| `pnpm test:soak`     | The soak test for 10 minutes (the E2E run includes a 1-minute soak)           |
+| `pnpm budgets`       | Gzipped JS budgets of the production build (run after `pnpm build`)           |
+| `pnpm test:models`   | Real engines: install, synthesis, offline read and the §9.1 SLO measurements  |
 
 E2E uses a persistent Chromium context with `--load-extension`; the extension ID comes from the
 service worker URL.

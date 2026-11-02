@@ -71,7 +71,7 @@ const call = <R>(page: Page, fn: string, ...args: unknown[]) =>
 
 async function main() {
   const server = await startModelServer(8767);
-  const ext = path.resolve('.output/chrome-mv3-test');
+  const ext = path.resolve('output/chrome-mv3-test');
   const ctx = await chromium.launchPersistentContext(mkdtempSync(path.join(tmpdir(), 'or-bake-')), {
     channel: 'chromium',
     args: [`--disable-extensions-except=${ext}`, `--load-extension=${ext}`],

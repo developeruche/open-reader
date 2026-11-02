@@ -2,13 +2,13 @@
  * Performance budgets checked in CI (PLAN.md §9.1, M10): gzipped JavaScript each page loads up
  * front, from the built extension. Engines, PDF.js workers and WASM load lazily and are excluded.
  *
- *   pnpm build && pnpm budgets [.output/chrome-mv3]
+ *   pnpm build && pnpm budgets [output/chrome-mv3]
  */
 import { readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { gzipSync } from 'node:zlib';
 
-const dir = path.resolve(process.argv[2] ?? '.output/chrome-mv3');
+const dir = path.resolve(process.argv[2] ?? 'output/chrome-mv3');
 const KB = 1024;
 
 interface Budget {

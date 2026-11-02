@@ -7,7 +7,7 @@ import tseslint from 'typescript-eslint';
 export default tseslint.config(
   {
     ignores: [
-      '.output/**',
+      'output/**',
       'open-reader-*-chrome/**',
       'chrome-mv3/**',
       '.wxt/**',
@@ -16,6 +16,7 @@ export default tseslint.config(
       'playwright-report/**',
       'test-results/**',
       'spikes/**',
+      'spike/**',
       'public/**',
       'quality/**',
       'src/engines/kokoro/headtts/**',

@@ -236,6 +236,6 @@ per word.
 
 ### M0
 
-1. `pnpm build`, then load `.output/chrome-mv3` unpacked in Chrome.
+1. `pnpm build`, then load `output/chrome-mv3` unpacked in Chrome.
 2. Click the toolbar icon: the side panel opens and shows "Open Reader".
 3. Open `chrome://extensions/shortcuts`: four Open Reader shortcuts are listed.

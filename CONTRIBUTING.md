@@ -85,7 +85,6 @@ Further reading:
 - [docs/TESTING.md](docs/TESTING.md): the test suites, performance targets and results
 - [docs/PRIVACY.md](docs/PRIVACY.md): network use, permissions and what is stored where
 - [docs/THIRD_PARTY.md](docs/THIRD_PARTY.md): every dependency and its license
-- [docs/PROGRESS.md](docs/PROGRESS.md): milestones and the manual QA scripts
 - [docs/adr/](docs/adr/): architecture decision records
 
 ## Project rules
@@ -145,7 +144,7 @@ test hooks and a deterministic test-tone voice. Each test runs in a fresh Chrome
 deleted afterwards.
 
 For changes you can't fully test automatically (how a voice sounds, highlights on a real site),
-add the steps to check by hand to the manual QA scripts in [docs/PROGRESS.md](docs/PROGRESS.md).
+list the steps you checked by hand in the pull request, so a reviewer can repeat them.
 
 ## License of contributions
 

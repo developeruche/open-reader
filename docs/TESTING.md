@@ -103,4 +103,4 @@ Apple M3 Max, macOS 26.6, Playwright Chromium, 2026-10-29.
   Serious and critical findings fail; moderate ones are printed. At 1.0.0 there are none of either.
 - Acceptance for 1.0.0: `pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build &&
 pnpm budgets && pnpm test:e2e`, `pnpm test:models` (including the offline read), `pnpm test:soak`,
-  the quality harness, and the owner's 30-minute session in each mode (docs/PROGRESS.md).
+  the quality harness, and a 30-minute listening session in each mode.

@@ -10,8 +10,8 @@ Open Reader is an MV3 extension with one reading session at a time:
 - **Surfaces**: the content script (highlights, cursor, mini player, keyboard), the side panel,
   the reader page (PDF.js viewer), Options and onboarding.
 - Everything that touches `chrome.*` lives in `src/platform/`; `src/core/` and `src/runtime/` are
-  pure and unit-tested. PLAN.md §4 has the original design; the ADRs record where the code
-  differs.
+  pure and unit-tested. The ADRs in `docs/adr/` record the design decisions and why they were
+  made.
 
 - `src/entrypoints/`: background, content script, side panel, reader, offscreen, options, onboarding.
 - `src/core/`: pure TypeScript (no `chrome.*`), unit-tested.

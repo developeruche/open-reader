@@ -24,10 +24,10 @@ test-results/
 playwright-report/
 blob-report/
 coverage/
+.vitest/
 tests/e2e/.auth/
 quality/.venv/
 quality/out/
-spikes/**/out/
 
 # Logs and editor files
 logs
@@ -37,10 +37,6 @@ logs
 .idea
 .DS_Store
 *.sw?
-spikes/extension/public/ort/
-spikes/extension/public/piper/
-spikes/extension/public/headtts/
-spikes/extension/public/pdfjs/
 quality/.pytest_cache/
 **/__pycache__/
 

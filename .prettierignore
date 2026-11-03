@@ -7,7 +7,6 @@ playwright-report
 test-results
 pnpm-lock.yaml
 public
-spikes
 spike
 tests/fixtures/**/*.json
 PLAN.md

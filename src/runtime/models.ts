@@ -156,10 +156,6 @@ export async function playSample(
   await sampleAudio.play();
 }
 
-export function stopSample(): void {
-  sampleAudio?.pause();
-}
-
 /**
  * The pronunciation editor's Test button: "Say <word>." through the real normalizer with the
  * entry applied, in the current voice (system voices speak through chrome.tts).

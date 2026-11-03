@@ -58,9 +58,6 @@ vi.mock('@/platform/tabs', () => ({
   openReader: vi.fn(),
   openReaderDoc: vi.fn(),
   focusTab: vi.fn(async () => undefined),
-  targetTabId: async () => 7,
-  tabUrl: async () => 'https://example.com/',
-  isPdfUrl: (u: string) => u.endsWith('.pdf'),
 }));
 // Storage and Diagnostics have their own tests (optionsSections.test.tsx).
 vi.mock('@/ui/shells/StorageSection', () => ({ StorageSection: () => <h1>Storage</h1> }));

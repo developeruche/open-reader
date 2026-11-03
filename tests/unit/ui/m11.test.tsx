@@ -92,7 +92,7 @@ describe('PronunciationsSection', () => {
     expect(await screen.findByText('No custom pronunciations yet')).toBeTruthy();
     await userEvent.click(await screen.findByRole('button', { name: 'Undo' }));
     expect(await screen.findByRole('row', { name: /Schnorr/ })).toBeTruthy();
-  });
+  }, 15_000);
 
   it('turns packs off and on', async () => {
     wrap(<PronunciationsSection />);

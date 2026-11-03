@@ -13,6 +13,9 @@ export default defineConfig({
           environment: 'happy-dom',
           include: ['tests/unit/**/*.test.{ts,tsx}'],
           setupFiles: ['tests/unit/setup.ts'],
+          // The longest UI flows take ~2 s alone but pass 5 s when the pre-commit hook runs ESLint
+          // alongside them.
+          testTimeout: 15_000,
         },
       },
       {

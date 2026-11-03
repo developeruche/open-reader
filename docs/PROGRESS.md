@@ -82,8 +82,9 @@ Installed into `.claude/skills/` by copying from pinned commits after reading ev
 
 ## Spikes (M1)
 
-Throwaway code under `spikes/` (excluded from build, lint and typecheck). Reproduce with
-`pnpm spikes:setup && pnpm spikes:build && pnpm spikes:run`; results land in `spikes/out/` (gitignored).
+The throwaway spike code was removed before publishing (commit b3e3ae9). To reproduce the M1
+results, check out the commit before it (`git checkout aba3de2`) and run
+`pnpm spikes:setup && pnpm spikes:build && pnpm spikes:run`.
 
 ## Manual QA scripts
 

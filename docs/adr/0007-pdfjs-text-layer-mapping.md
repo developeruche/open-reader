@@ -25,3 +25,11 @@ extension URLs. Target: the word "zebra" in the right column of page 3.
 Implement §8.4 with this rule, use the same `getTextContent({ includeMarkedContent: true,
 disableNormalization: true })` options as the text layer for layout analysis, and cover it with a
 unit test on the mapping function plus the E2E on the two-column fixture.
+
+## Note: page box sizing (post-1.0)
+
+The app's Tailwind base sets `box-sizing: border-box` on every element. PDF.js sizes its pages
+for `content-box` (each `.page` has a 9 px border), so the canvas shrank by 18 px while the text
+layer kept the full page size, and word highlights drifted right and down across the page.
+`src/pdf/viewer.css` restores `content-box` for `.pdfViewer .page`, and an E2E test checks that the
+text layer and the canvas have the same box.

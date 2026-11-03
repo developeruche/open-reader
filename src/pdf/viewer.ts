@@ -12,6 +12,7 @@ import {
   PDFViewer,
 } from 'pdfjs-dist/web/pdf_viewer.mjs';
 import 'pdfjs-dist/web/pdf_viewer.css';
+import './viewer.css';
 import type { ReadingDocument } from '@/core/document/model';
 import type { analyzeLayout, LayoutResult, PdfPageText } from './layout';
 import { pageText } from './textContent';

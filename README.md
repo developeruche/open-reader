@@ -69,6 +69,8 @@ instead. Whatever is still playing elsewhere stays in a bar at the top, with **G
 - **A PDF on your computer:** press the PDF button at the top of the side panel (or **Open a PDF
   from your computer**), then choose the file or drop it onto the page.
 
+![The PDF reader reading a two-column paper, with the current sentence shaded and the current word highlighted](docs/images/pdf.png)
+
 The PDF opens in Open Reader's own reader, with page thumbnails, an outline, search and zoom. To
 open PDFs stored on your computer from a `file://` link, go to `chrome://extensions`, open Open
 Reader's **Details**, and turn on **Allow access to file URLs**.

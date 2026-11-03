@@ -1,0 +1,8 @@
+/*
+ * The app's Tailwind base sets `box-sizing: border-box` on everything. PDF.js pages have a 9px
+ * border and size their canvas and text layer for `content-box`, so under border-box the canvas
+ * shrinks by 18px while the text layer keeps the full size, and highlights drift off the words.
+ */
+.pdfViewer .page {
+  box-sizing: content-box;
+}

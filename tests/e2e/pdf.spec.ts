@@ -52,6 +52,23 @@ const data = (page: Page, k: string) =>
   page.evaluate((key) => document.documentElement.dataset[key] ?? '', k);
 
 test.describe('document mode (PDF)', () => {
+  test('the text layer lines up with the rendered page, so highlights sit on their words', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await openPdf(context, extensionId, 'two-column');
+    const boxes = await page.evaluate(() => {
+      const p = document.querySelector('.page');
+      const box = (sel: string) => {
+        const r = p?.querySelector(sel)?.getBoundingClientRect();
+        return r ? [r.x, r.y, r.width, r.height].map(Math.round) : [];
+      };
+      return { canvas: box('canvas'), text: box('.textLayer') };
+    });
+    expect(boxes.canvas.length).toBe(4);
+    expect(boxes.text).toEqual(boxes.canvas);
+  });
+
   test('reads two columns in order and puts the cursor on the right word on page 2', async ({
     context,
     extensionId,

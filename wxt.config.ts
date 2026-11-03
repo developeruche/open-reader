@@ -69,6 +69,9 @@ function offlineModels(): [string, string][] {
 }
 
 // See https://wxt.dev/api/config.html
+const KEY =
+  'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqc6i3OvaimtolxtBxF6l2sAg/OuEN8GdP/SrcX10cFSqbHszbAteNFqsPB65qjrdUYw1sEr25F8EuJMzcfwdusz9LE+lY1DkEoLaAeEvaCT9vYo2cROD0OaJhuflZkcjYlb45HjdqQk1tU0AF1N7Rn09S8+5kuZBoqtdgbBZR87u/Ex1RAHcJ87ASTliwcZ029cDZkZ8TeyZzdlgGQMondPafPcb+PZIi4za2wtsyj5EBK6+vbSyWde90mmbonW9w32Jjk3GtOsgZSBNOO05YG3amJIB3csrd/mgXSAJwduzUshbRxUx/nJii8y6uhAjDIhwnbALZeWXfT+kshLWQwIDAQAB';
+
 export default defineConfig({
   srcDir: 'src',
   outDir: 'output',
@@ -103,8 +106,9 @@ export default defineConfig({
     name: 'Open Reader',
     // A fixed public key gives the unpacked extension the same ID (ciacahokbkkhcpoefghbmnmilbaalcem)
     // from any folder, so rebuilds and moves keep their downloaded voices and settings. Only the
-    // public half is needed to load unpacked; there is no private key to protect.
-    key: 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqc6i3OvaimtolxtBxF6l2sAg/OuEN8GdP/SrcX10cFSqbHszbAteNFqsPB65qjrdUYw1sEr25F8EuJMzcfwdusz9LE+lY1DkEoLaAeEvaCT9vYo2cROD0OaJhuflZkcjYlb45HjdqQk1tU0AF1N7Rn09S8+5kuZBoqtdgbBZR87u/Ex1RAHcJ87ASTliwcZ029cDZkZ8TeyZzdlgGQMondPafPcb+PZIi4za2wtsyj5EBK6+vbSyWde90mmbonW9w32Jjk3GtOsgZSBNOO05YG3amJIB3csrd/mgXSAJwduzUshbRxUx/nJii8y6uhAjDIhwnbALZeWXfT+kshLWQwIDAQAB',
+    // public half is needed to load unpacked; there is no private key to protect. The Chrome Web
+    // Store assigns its own ID and rejects a manifest with a key, so `pnpm zip:store` leaves it out.
+    ...(process.env.OPEN_READER_STORE === '1' ? {} : { key: KEY }),
     description: 'Offline, reliable read-aloud for web pages and PDFs.',
     minimum_chrome_version: '116',
     permissions: [

@@ -10,6 +10,7 @@
     "build": "wxt build",
     "build:test": "wxt build --mode test",
     "zip": "wxt zip",
+    "zip:store": "OPEN_READER_STORE=1 wxt zip",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
@@ -27,7 +28,8 @@
     "synth:corpus": "tsx scripts/synth-corpus.ts",
     "quality": "uv run --project quality --python 3.12 python quality/asr_qa.py",
     "fixtures": "tsx scripts/make-fixtures.ts",
-    "budgets": "tsx scripts/check-budgets.ts"
+    "budgets": "tsx scripts/check-budgets.ts",
+    "screenshots": "tsx scripts/screenshots.ts"
   },
   "dependencies": {
     "@diffusionstudio/piper-wasm": "1.0.0",

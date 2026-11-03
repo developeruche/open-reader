@@ -1,70 +1,101 @@
 # Open Reader
 
-Read-aloud for web pages and PDFs that works offline. Natural voices run on your device, and a
-highlight and a thin cursor follow the voice word by word.
+**Listen to any article or PDF in a natural voice, with every word highlighted as it's spoken.
+Free, private, and it works offline.**
 
-For research and personal use. Not published to the Chrome Web Store.
+![Open Reader reading an article aloud: the current sentence and word are highlighted on the page, and the side panel shows the player and the article's text](docs/images/web.png)
 
-## Install (unpacked)
+Open Reader is a read-aloud extension for Google Chrome. Click its icon on an article, press
+**Read this page**, and sit back. The voice runs on your own computer, so nothing you read is sent
+anywhere, and it keeps working on a plane or without Wi-Fi.
 
-You need Chrome 116 or later on a desktop computer.
+## Why Open Reader
 
-1. Build it, or use a zip from a release:
-   ```bash
-   pnpm install
-   pnpm build
-   ```
-   The extension is in `output/chrome-mv3`. (`pnpm zip` makes `output/open-reader-1.0.0-chrome.zip`;
-   unzip it first.)
-2. Open `chrome://extensions`, turn on **Developer mode**, press **Load unpacked**, and choose the
-   `output/chrome-mv3` folder.
-3. Pin Open Reader from the puzzle-piece menu so its icon is always visible.
+- **Natural voices, on your device.** Open Reader uses modern neural voices that sound like a
+  person reading, not a robot. They run inside Chrome on your computer.
+- **Follow along word by word.** The sentence being read is shaded and the current word is
+  highlighted, both on the page and in the side panel. The page scrolls with the voice, so your
+  place is never lost.
+- **Articles and PDFs.** It finds the main text of a web page and skips menus, ads and footers. In
+  PDFs it handles two-column layouts and leaves out running headers, page numbers and references.
+  Scanned PDFs are recognized on your computer.
+- **Private by design.** No account, no tracking, no analytics. The only download is the voice
+  itself, once.
+- **Free.** No subscription and no word limits.
 
-**Updating:** after `pnpm build`, press the reload icon on the Open Reader card in
-`chrome://extensions`. The extension always has the same ID
-(`ciacahokbkkhcpoefghbmnmilbaalcem`, fixed by the manifest key), so voices, settings and stored
-PDFs survive rebuilds, and even loading the build from another folder. **Remove** deletes all of
-them, so prefer reload. Keep only one copy of Open Reader loaded at a time.
+## Install
 
-To read PDFs stored on your computer, open the extension's **Details** and turn on **Allow access
-to file URLs**.
+<!-- CHROME_WEB_STORE_LINK: replace this block with the listing URL once published. -->
 
-## First run
+**Chrome Web Store:** coming soon.
 
-A welcome page opens after installing. It:
+You need Chrome 116 or later on a desktop computer (Windows, macOS, Linux or ChromeOS).
 
-1. downloads the default voice, _Kokoro Heart_: natural, with exact word timings. It is a
-   one-time ~330 MB download with WebGPU, or ~90 MB without;
-2. checks this computer with a short benchmark and suggests the faster voice (Piper) if needed;
-3. lets you pick a voice, and shows the three shortcuts to remember.
+After installing, pin Open Reader from Chrome's puzzle-piece menu so its icon is always in
+the toolbar.
 
-Until a voice is installed, Open Reader reads with your system's voices.
+## Getting started
 
-After the download, everything runs offline: no account, no telemetry, and no document text
-leaves your computer.
+A welcome page opens right after you install. It:
 
-## Everyday use
+1. **Downloads the voice** (about 330 MB, or about 90 MB on computers without a capable graphics
+   chip). This happens once; after that Open Reader works offline.
+2. **Checks how fast your computer is** and suggests a lighter voice if it would be smoother.
+3. **Lets you pick a voice** and shows the three shortcuts worth remembering.
 
-- **Read a web page:** open the article, click the Open Reader icon, and press **Read this page**.
-  Or press Alt+Shift+P on the page, or right-click the icon and choose **Read this page**. The side
-  panel always shows the tab in front: switch to another article and press **Read this page** to
-  hear it instead. Whatever is playing elsewhere stays in a bar at the top, with **Go to tab**.
-- **Read a PDF:** press the PDF button at the top of the side panel (or **Open a PDF from your
-  computer**, or right-click the Open Reader icon → **Open a PDF…**) and choose a file or drop it
-  on the page. For a PDF open in a tab, the side panel offers **Read this PDF**. Two-column layouts,
-  running headers, page numbers and references are handled, and scanned pages are recognized on
-  your device. Options → Reading rules can open every PDF link in Open Reader.
+Until the download finishes, Open Reader reads with your computer's built-in voices, so you can
+start right away.
+
+## How to use it
+
+### Listen to a web page
+
+Open an article and click the Open Reader icon. The side panel opens; press **Read this page**.
+
+Other ways to start:
+
+- Press **Alt+Shift+P** on any page.
+- Right-click the Open Reader icon and choose **Read this page**.
+- Right-click a paragraph and choose **Read page from here**.
+- Select some text and press **Play from here**, or choose **Read selection aloud**.
+
+A small floating player appears on the page while it reads. The side panel always follows the
+tab in front of you: switch to another article and press **Read this page** to hear that one
+instead. Whatever is still playing elsewhere stays in a bar at the top, with **Go to tab**.
+
+### Listen to a PDF
+
+- **A PDF open in a tab:** the side panel offers **Read this PDF**.
+- **A PDF on your computer:** press the PDF button at the top of the side panel (or **Open a PDF
+  from your computer**), then choose the file or drop it onto the page.
+
+The PDF opens in Open Reader's own reader, with page thumbnails, an outline, search and zoom. To
+open PDFs stored on your computer from a `file://` link, go to `chrome://extensions`, open Open
+Reader's **Details**, and turn on **Allow access to file URLs**.
+
+### While it reads
+
+- **Jump around:** click any sentence in the side panel, or Alt+click a word on the page.
+- **Change the speed:** from 0.5× to 4×, without the voice getting squeaky.
+- **Change the voice:** pick another one from the voice menu at any time.
 - **Pick up where you left off:** the side panel's **Recent** list reopens an article at your
-  position, or a PDF from its saved copy. Closing a tab ends its reading, and reading it again
-  later resumes.
-- **Jump around:** click any sentence in the side panel, or Alt+click a word on the page. Select
-  text and press **Play from here**.
-- **Speed, voice, pauses:** in the side panel or the floating player, from 0.5× to 4×.
-- **Sleep timer, rules for one page, audiobook export:** side panel → **Settings**, or the reader's
-  **Reading options** drawer. Exports are MP3 (64 kbps, with a chapter per heading) or WAV at
-  −17 LUFS, saved to Downloads.
-- **Pronunciations:** Options → Pronunciations. Add a word, press **Test** to hear it, and import
-  or export the list as JSON.
+  position, or a PDF from its saved copy.
+- **Set a sleep timer:** side panel → **Settings**. Stop after a number of minutes or at the end
+  of the section; it always finishes the sentence first.
+- **Skip parts you don't want read:** code blocks, tables, citations, web addresses and reference
+  lists are skipped by default. Change this for one page in **Settings**, or for everything in Options →
+  Reading rules.
+
+### Make an audiobook
+
+Side panel → **Settings** → **Export audiobook…** (or **Reading options** in the PDF reader).
+Open Reader saves the whole document to your Downloads folder as an MP3 with a chapter for every
+heading, or as a WAV file.
+
+### Teach it a word
+
+If a name or term is mispronounced, go to Options → **Pronunciations**, add the word with how it
+should sound, and press **Test** to hear it. You can import and export your list.
 
 ## Keyboard shortcuts
 
@@ -77,52 +108,64 @@ leaves your computer.
 | Previous / next sentence            | J / K                     |
 | Previous / next paragraph           | Shift+J / Shift+K         |
 | Slower / faster                     | − / =                     |
-| Follow on or off                    | F                         |
+| Follow the voice on or off          | F                         |
 | Stop                                | Esc                       |
 
-The first four work in any tab; change them at `chrome://extensions/shortcuts`. The rest work on
-the page being read, in the side panel and in the reader.
+The first three work in any tab, and you can change them at `chrome://extensions/shortcuts`. The
+rest work on the page being read, in the side panel and in the PDF reader.
 
-## Troubleshooting
+## Voices
 
-| What you see                                     | What to do                                                                                                                                                     |
-| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| "This page can't be read"                        | Chrome blocks extensions on `chrome://` pages and the Web Store. For a PDF, use **Open a PDF…**.                                                               |
-| "No readable text was found"                     | The page draws text in a way Readability can't find. Select the text and choose **Read selection aloud**.                                                      |
-| A local PDF won't open                           | Turn on **Allow access to file URLs** in the extension's Details.                                                                                              |
-| The voice is slow or stops between sentences     | Options → Voices & models → **Run benchmark**, then choose the voice it recommends (Piper is the fastest). A notice suggests this when synthesis falls behind. |
-| "Switched to … because … failed"                 | The voice could not run on this backend, so the next one took over (WASM, then Piper, then system voices). Diagnostics has the details.                        |
-| No sound                                         | Check that the tab isn't muted and that the system output device is right. Options → Diagnostics shows the engine state.                                       |
-| Highlights are off on a page that changes itself | Some pages re-render while you read. Reading continues in the side panel; press **Read this page** again to re-attach.                                         |
-| The voice downloads again after every build      | Use the reload icon instead of **Remove** + **Load unpacked**. Builds before this change had a different ID per folder, each with its own storage.             |
-| Storage is full                                  | Options → Storage: lower the audio cache limit, clear it, or remove stored PDFs. Request persistent storage there so Chrome keeps models when space is low.    |
+| Voice                                    | Sounds like                     | Best for                                          |
+| ---------------------------------------- | ------------------------------- | ------------------------------------------------- |
+| **Kokoro**: Heart, Michael, Emma, George | Natural American and British    | Most computers; the default                       |
+| **Piper**: Classic, Medium, LJSpeech     | Clear and steady                | Older or slower computers                         |
+| **System voices**                        | Your computer's built-in voices | Before a voice is downloaded, or as a last resort |
 
-Options → Diagnostics → **Copy diagnostics** puts a report on your clipboard. It never contains
-document text, page titles or URLs.
+Add or remove voices in Options → **Voices & models**, where **Run benchmark** tells you which one
+runs best on your computer. If a voice ever fails, Open Reader switches to the next one by itself
+and tells you.
 
 ## Privacy
 
-See [docs/PRIVACY.md](docs/PRIVACY.md). In short: model downloads from Hugging Face (pinned
-revisions, checked by SHA-256) are the only network traffic. Everything you read, and every
-setting, stays in this Chrome profile.
+Open Reader collects nothing. Everything you read, your reading history and your settings stay
+in your Chrome profile.
 
-## Develop
+It goes online only when you ask it to: to download a voice (from Hugging Face, with every file
+checked against a known fingerprint), or to fetch a PDF you open from a link. Chrome's own online
+voices, which send text to Google, are hidden unless you turn off **Strict offline** in Options.
 
-```bash
-pnpm install
-pnpm dev            # Chrome with the extension loaded and HMR
-pnpm build          # output/chrome-mv3
-```
+Open Reader needs permission to read the pages you visit so it can find the text and highlight it
+when you press **Read this page**. It does nothing on a page until you ask it to read. The full
+details are in [docs/PRIVACY.md](docs/PRIVACY.md).
 
-```bash
-pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm test:e2e
-pnpm budgets        # bundle-size budgets (after pnpm build)
-pnpm test:soak      # 10-minute soak
-pnpm models:fetch all && pnpm test:models    # real engines, SLOs, offline read
-```
+## Troubleshooting
 
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): how the pieces fit
-- [docs/MODELS.md](docs/MODELS.md): the voices, and adding a model or engine
-- [docs/TESTING.md](docs/TESTING.md): test suites, SLO results, the quality harness
-- [docs/PRIVACY.md](docs/PRIVACY.md), [docs/THIRD_PARTY.md](docs/THIRD_PARTY.md): data and licenses
-- [docs/PROGRESS.md](docs/PROGRESS.md) and `docs/adr/`: milestones and decisions
+| What you see                                     | What to do                                                                                                                          |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| "This page can't be read aloud"                  | Chrome doesn't let extensions read its own pages (`chrome://…`) or the Web Store. For a PDF, use **Open a PDF from your computer**. |
+| "No readable text was found"                     | Some pages draw their text in an unusual way. Select the text and choose **Read selection aloud**.                                  |
+| A PDF on your computer won't open                | Turn on **Allow access to file URLs** in Open Reader's **Details** at `chrome://extensions`.                                        |
+| The voice pauses between sentences               | Options → Voices & models → **Run benchmark**, then choose the voice it recommends. A notice suggests this when it notices delays.  |
+| "Switched to … because … failed"                 | That voice couldn't run on your computer, so the next one took over. Nothing to do unless you prefer another voice.                 |
+| No sound                                         | Check that the tab isn't muted and that your computer's sound output is right.                                                      |
+| Highlights are off on a page that changes itself | Some pages rebuild themselves while you read. Reading continues in the side panel; press **Read this page** again to re-attach.     |
+| Storage is getting full                          | Options → Storage: lower the audio cache limit, clear it, or remove stored PDFs.                                                    |
+
+Still stuck? Open Options → **Diagnostics** → **Copy diagnostics** and include the report when
+you [open an issue](../../issues). The report never contains what you were reading, page titles
+or addresses.
+
+## Contributing
+
+Bug reports, ideas and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) explains how
+to build Open Reader from source, how it is put together, and how to run the tests.
+
+## Thanks
+
+Open Reader stands on the work of [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) and
+[Piper](https://github.com/rhasspy/piper) (voices), [ONNX Runtime](https://onnxruntime.ai/)
+(running them), [PDF.js](https://mozilla.github.io/pdf.js/) (PDFs),
+[Tesseract](https://github.com/naptha/tesseract.js) (scanned pages) and
+[Readability](https://github.com/mozilla/readability) (finding the article). Their licenses are
+listed in [docs/THIRD_PARTY.md](docs/THIRD_PARTY.md) and [docs/MODELS.md](docs/MODELS.md).

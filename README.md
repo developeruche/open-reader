@@ -29,6 +29,13 @@ anywhere, and it keeps working on a plane or without Wi-Fi.
 
 **Chrome Web Store:** coming soon.
 
+**Until then, install it by hand:**
+
+1. Download `open-reader-1.0.0-chrome.zip` from the
+   [latest release](https://github.com/developeruche/open-reader/releases/latest) and unzip it.
+2. Open `chrome://extensions` and turn on **Developer mode** (top right).
+3. Press **Load unpacked** and choose the unzipped folder.
+
 You need Chrome 116 or later on a desktop computer (Windows, macOS, Linux or ChromeOS).
 
 After installing, pin Open Reader from Chrome's puzzle-piece menu so its icon is always in

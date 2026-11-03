@@ -6,6 +6,7 @@ import { Ban, FileText, Gauge, HardDrive, Info, Keyboard, Mic, Stethoscope, Type
 import { Button, Kbd, Select, Skeleton, SkipLink, Slider, Toggle } from '../components';
 import { cn } from '../cn';
 import { formatRate } from '../format';
+import { STORE_BUILD } from '@/engines/factory';
 import { environmentInfo } from '@/platform/environment';
 import { openReader } from '@/platform/tabs';
 import { VoicesSection } from '../models/VoicesSection';
@@ -211,9 +212,14 @@ function Shortcuts() {
   );
 }
 
-const LICENSES: [string, string][] = [
+const RESEARCH_VOICES: [string, string] = [
+  'Piper voices (Classic, lessac medium)',
+  'MIT model; training data for research use only',
+];
+
+const ALL_LICENSES: [string, string][] = [
   ['Kokoro-82M voice model', 'Apache-2.0'],
-  ['Piper voices (Classic, lessac medium)', 'MIT model; training data for research use only'],
+  RESEARCH_VOICES,
   ['Piper LJSpeech voice', 'MIT model; public-domain data'],
   ['onnxruntime-web', 'MIT'],
   ['espeak-ng (in the Piper phonemizer)', 'GPL-3.0'],
@@ -227,13 +233,19 @@ const LICENSES: [string, string][] = [
   ['Geist and Newsreader fonts', 'SIL OFL-1.1'],
 ];
 
+// Store builds don't offer the research-only lessac voices (publicRegistry).
+const LICENSES = STORE_BUILD ? ALL_LICENSES.filter((l) => l !== RESEARCH_VOICES) : ALL_LICENSES;
+
 function About() {
   const [version, setVersion] = useState('');
   useEffect(() => {
     void environmentInfo().then((e) => setVersion(e.version));
   }, []);
   return (
-    <Section title="About & licenses" intro="Open Reader is for research and personal use.">
+    <Section
+      title="About & licenses"
+      intro="Open Reader is free and open source, under the MIT or Apache-2.0 license."
+    >
       <p className="text-sm text-ink-2">
         Version <span className="tabular">{version || '…'}</span>. Everything runs on this device;
         nothing you read is sent anywhere.

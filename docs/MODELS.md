@@ -35,7 +35,8 @@ outside the browser profile.
    file's `bytes` and `sha256` (`shasum -a 256`), mark backend-specific files with `backend`.
 2. `pnpm test` validates the registry (unique ids, hashes, sizes, default voice).
 3. If the license restricts use, set `license.personalUseOnly` and a `notice`; the UI asks before
-   installing.
+   installing. Chrome Web Store builds (`pnpm build:store`, `pnpm zip:store`) leave these models out
+   entirely (`publicRegistry`), so the store version offers Kokoro and Piper LJSpeech only.
 
 ## Adding an engine (worked example)
 

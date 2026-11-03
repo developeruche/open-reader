@@ -10,7 +10,7 @@ import {
   type ModelFile,
 } from '@/core/models/downloader';
 import { filePath, filesFor, INSTALLED_KEY, ModelManager } from '@/core/models/manager';
-import { ModelManifestSchema, RegistrySchema } from '@/core/tts/registry';
+import { ModelManifestSchema, publicRegistry, RegistrySchema } from '@/core/tts/registry';
 import { memoryStore } from '@/core/util/kv';
 import registry from '../../../../models/registry.json';
 import { MemoryFileStore } from '../../helpers/memoryFileStore';
@@ -360,5 +360,9 @@ describe('bundled registry', () => {
     expect(filesFor(kokoro, 'wasm').some((f) => f.path === 'onnx/model_quantized.onnx')).toBe(true);
     for (const m of r.models.filter((x) => x.id.includes('lessac')))
       expect(m.license.personalUseOnly).toBe(true);
+  });
+  it('store builds leave out the research-only voices and keep Kokoro and LJSpeech', () => {
+    const ids = publicRegistry(RegistrySchema.parse(registry)).models.map((m) => m.id);
+    expect(ids).toEqual(['kokoro-82m-v1-timestamped', 'piper-en_US-ljspeech-high']);
   });
 });

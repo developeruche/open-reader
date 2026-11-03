@@ -1,7 +1,7 @@
 /** Creates engines inside dedicated workers (PLAN.md §5.3) and initializes them. */
 import type { Endpoint } from 'comlink';
 import type { RenderEngine } from '@/core/tts/engine';
-import { RegistrySchema, type ModelManifest } from '@/core/tts/registry';
+import { publicRegistry, RegistrySchema, type ModelManifest } from '@/core/tts/registry';
 import { modelDir } from '@/core/models/manager';
 import registryJson from '../../models/registry.json';
 import { RemoteEngine } from './rpc';
@@ -9,7 +9,11 @@ import { SystemEngine } from './system/engine';
 import type { TtsApi } from './system/tts';
 import { TestEngine } from './test/engine';
 
-export const REGISTRY = RegistrySchema.parse(registryJson);
+/** `pnpm zip:store` sets this; store builds offer only voices that may be distributed publicly. */
+export const STORE_BUILD = import.meta.env.WXT_OPEN_READER_STORE === '1';
+
+const parsed = RegistrySchema.parse(registryJson);
+export const REGISTRY = STORE_BUILD ? publicRegistry(parsed) : parsed;
 
 export interface EngineHandle {
   engineId: string;

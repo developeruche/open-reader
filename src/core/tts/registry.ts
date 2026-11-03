@@ -66,3 +66,11 @@ export const RegistrySchema = z
   });
 
 export type Registry = z.infer<typeof RegistrySchema>;
+
+/**
+ * The catalogue for a Chrome Web Store build: without models whose license is for personal or
+ * research use only (the Piper lessac voices, trained on Blizzard 2013 Lessac data).
+ */
+export function publicRegistry(r: Registry): Registry {
+  return { ...r, models: r.models.filter((m) => !m.license.personalUseOnly) };
+}

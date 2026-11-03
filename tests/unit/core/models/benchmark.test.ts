@@ -47,6 +47,15 @@ describe('chooseDefault (§6.4)', () => {
       ])?.modelId,
     ).toBe('piper-en_US-lessac-medium');
   });
+  it('picks another fast Piper voice when lessac is not installed (store builds)', () => {
+    expect(
+      chooseDefault([
+        r('kokoro', 'k', 'webgpu', 0.9),
+        r('kokoro', 'k', 'wasm', 0.5),
+        r('piper', 'piper-en_US-ljspeech-high', 'wasm', 0.3),
+      ])?.modelId,
+    ).toBe('piper-en_US-ljspeech-high');
+  });
   it('never picks silent or failed output (Kokoro fp16, ADR 0003)', () => {
     expect(
       chooseDefault([

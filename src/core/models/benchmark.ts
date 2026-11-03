@@ -35,8 +35,9 @@ export const BENCHMARK_SENTENCES = [
 const ok = (r: BenchmarkResult | undefined) => !!r && !r.error && r.audible && r.rtf <= RTF_GOOD;
 
 /**
- * Kokoro on WebGPU if RTF ≤ 0.6; otherwise Piper lessac-high if RTF ≤ 0.6; otherwise Piper
- * lessac-medium. Kokoro WASM is used when it is fast enough and no Piper result exists.
+ * Kokoro on WebGPU if RTF ≤ 0.6; otherwise Piper lessac-high if RTF ≤ 0.6, or another Piper voice
+ * that fast (store builds have only LJSpeech); otherwise Piper lessac-medium. Kokoro WASM is used
+ * when it is fast enough and no Piper result exists.
  */
 export function chooseDefault(results: BenchmarkResult[]): BenchmarkCandidate | null {
   const find = (f: (r: BenchmarkResult) => boolean) =>
@@ -45,7 +46,9 @@ export function chooseDefault(results: BenchmarkResult[]): BenchmarkCandidate | 
     r ? { engineId: r.engineId, modelId: r.modelId, backend: r.backend } : null;
   const kokoroGpu = find((r) => r.engineId === 'kokoro' && r.backend === 'webgpu');
   if (ok(kokoroGpu)) return pick(kokoroGpu);
-  const high = find((r) => r.engineId === 'piper' && r.modelId.includes('lessac-high') && ok(r));
+  const high =
+    find((r) => r.engineId === 'piper' && r.modelId.includes('lessac-high') && ok(r)) ??
+    find((r) => r.engineId === 'piper' && ok(r));
   if (high) return pick(high);
   const medium = find(
     (r) => r.engineId === 'piper' && r.modelId.includes('lessac-medium') && !r.error && r.audible,

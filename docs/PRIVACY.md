@@ -1,53 +1,78 @@
-# Privacy
+# Privacy policy
 
-Open Reader collects nothing. No analytics, no telemetry.
+_Last updated: 3 November 2026_
 
-## Network
+Open Reader reads web pages and PDFs aloud with voices that run on your own computer. This policy
+explains what it does with your data. In short: **Open Reader collects nothing, and nothing you
+read leaves your computer.**
 
-Open Reader makes network requests only when you ask it to:
+## What Open Reader does not do
 
-- **Model downloads** you start (onboarding or Options → Voices & models), from Hugging Face at
-  pinned revisions, each file checked against its SHA-256.
-- **A PDF you open by URL** (a PDF tab, a link's context menu, or the optional PDF redirect) is
-  downloaded by the reader so it can be read; Chrome sends it the usual cookies for that site.
+- It has no account, no analytics, no telemetry, no crash reporting and no advertising.
+- It never sends the text of a page or PDF, its title or its address anywhere.
+- It does not sell or share any data with anyone, because it has none to share.
+- It does not run on a page until you ask it to read that page.
 
-Chrome's own online system voices (for example "Google US English") send text to Google. They are
-hidden while **Strict offline** is on, which is the default. Open Reader has no online voices of
-its own (M12 was not built).
+## Network use
 
-## Permissions
+Open Reader goes online only when you ask it to:
 
-`host_permissions: ["<all_urls>"]` lets the content script read and highlight any page the owner
-asks it to read. This is a personal-use build; broad access is accepted in exchange for not
-prompting per site. The other permissions:
+- **Voice downloads** that you start, during onboarding or in Options → Voices & models. The files
+  come from Hugging Face at fixed versions, and each one is checked against a known SHA-256
+  fingerprint before it is used. Hugging Face sees an ordinary download request from your
+  browser.
+- **A PDF you open from a link** (a PDF tab, a link's right-click menu, or the optional "Open PDF
+  links in Open Reader" setting) is downloaded by the reader so it can be read. Chrome sends the
+  usual cookies for that site, exactly as it would if you opened the PDF yourself.
 
-| Permission                                            | Why                                                                                                |
-| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `sidePanel`, `contextMenus`, `activeTab`, `scripting` | The side panel, the right-click entries, and injecting the reader into the page you ask it to read |
-| `offscreen`                                           | The engine host that plays audio for web pages                                                     |
-| `storage`, `unlimitedStorage`                         | Settings, the session, and models in OPFS                                                          |
-| `tts`                                                 | System voices                                                                                      |
-| `downloads`                                           | Saving audiobook exports                                                                           |
-| `declarativeNetRequestWithHostAccess`                 | The optional "Open PDF links in Open Reader" redirect (off by default)                             |
+After a voice is installed, reading works with no network connection at all.
 
-## What is stored where (from M5)
+Chrome's own online voices (for example "Google US English") send text to Google. Open Reader
+hides them while **Strict offline** is on, which is the default. If you turn it off and choose one
+of those voices, Google's privacy policy applies to that text. Open Reader has no online voices of
+its own.
 
-| Store                                | Contents                                                                                                      | Lifetime                 |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| `chrome.storage.session`             | The current reading session (document id, title, URL, position, speed, voice) and the current document's text | Until the browser closes |
-| `chrome.storage.local`               | Appearance and, later, settings                                                                               | Until removed            |
-| IndexedDB `open-reader` → `audio`    | Synthesized audio for recently read sentences (LRU, 512 MB cap)                                               | Until evicted or cleared |
-| IndexedDB `open-reader` → `library`  | Title, URL and last position of documents you read                                                            | Until removed            |
-| IndexedDB `open-reader` → `lexicon`  | Your pronunciations                                                                                           | Until removed            |
-| IndexedDB `open-reader` → `docRules` | Reading rules you chose for a page or PDF                                                                     | Until removed            |
-| IndexedDB `open-reader` → `ocr`      | Text recognized on scanned PDF pages, on this device                                                          | Until removed            |
-| OPFS `exports/`                      | An audiobook while it is being made                                                                           | Deleted once it is saved |
-| OPFS `documents/`                    | Copies of PDFs you open in the reader, named by content hash, so they reopen after a restart                  | Until removed            |
+## Permissions and why they are needed
 
-Document text and PDFs are stored only on this device and never sent anywhere.
+| Permission                            | Why                                                                                                                                                                                           |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Read and change data on all websites  | When you press **Read this page**, Open Reader reads the article's text and highlights each word as it is spoken. It is injected only into the tab you ask it to read, and only when you ask. |
+| `activeTab`, `scripting`              | Injecting the reader into the page you ask it to read                                                                                                                                         |
+| `sidePanel`, `contextMenus`           | The side panel player and the right-click entries (**Read this page**, **Read selection aloud**, **Open a PDF…**)                                                                             |
+| `offscreen`                           | Playing audio for web pages while you use other tabs                                                                                                                                          |
+| `storage`, `unlimitedStorage`         | Settings, your reading position, and the voices (a few hundred megabytes) stored on your computer                                                                                             |
+| `tts`                                 | Your computer's built-in voices, used before a voice is downloaded or as a fallback                                                                                                           |
+| `downloads`                           | Saving the audiobooks you export to your Downloads folder                                                                                                                                     |
+| `declarativeNetRequestWithHostAccess` | The optional "Open PDF links in Open Reader" setting, which is off by default                                                                                                                 |
 
-Diagnostics (M10) keep a log of events, states and errors in the service worker's memory, never
-document text, titles or URLs. **Copy diagnostics** puts a JSON report on your clipboard only when you
-press it; keys named like an API key, token, secret or password are replaced with `[redacted]`. `reader.html` is a
-web-accessible resource only so the optional PDF redirect can open it; it reads nothing until you
-open a document.
+## What is stored on your computer
+
+Everything below stays in your Chrome profile on this computer. None of it is synced or uploaded.
+
+| Where                                    | What                                                                                          | How long                    |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------- | --------------------------- |
+| `chrome.storage.session`                 | The current reading session (title, address, position, speed, voice) and the document's text  | Until you close the browser |
+| `chrome.storage.local`                   | Your settings and appearance                                                                  | Until removed               |
+| IndexedDB → `audio`                      | Speech for recently read sentences, so going back is instant (up to 512 MB, oldest first out) | Until evicted or cleared    |
+| IndexedDB → `library`                    | Title, address and last position of documents you read (the **Recent** list)                  | Until removed               |
+| IndexedDB → `lexicon`                    | Your pronunciations                                                                           | Until removed               |
+| IndexedDB → `docRules`                   | Reading rules you chose for a page or PDF                                                     | Until removed               |
+| IndexedDB → `ocr`                        | Text recognized on scanned PDF pages                                                          | Until removed               |
+| Origin private file system: `models/`    | The voice models you installed                                                                | Until removed               |
+| Origin private file system: `documents/` | Copies of PDFs you open in the reader, so they reopen after a restart                         | Until removed               |
+| Origin private file system: `exports/`   | An audiobook while it is being made                                                           | Deleted once it is saved    |
+
+**Removing your data:** Options → **Storage** clears the audio cache and stored PDFs, and Options →
+**Voices & models** removes voices. Removing Open Reader from Chrome deletes everything it stored.
+
+## Diagnostics
+
+Open Reader keeps a short log of events, states and errors in memory to help with problems. It
+never contains document text, titles or addresses. Options → Diagnostics → **Copy diagnostics**
+puts the log on your clipboard only when you press it, so you can choose to include it in a bug
+report. Anything named like a key, token, secret or password is replaced with `[redacted]`.
+
+## Changes and contact
+
+If this policy changes, the new version will be published here with a new date. Questions are
+welcome as an issue on the project's GitHub page.

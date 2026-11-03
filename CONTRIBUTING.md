@@ -147,6 +147,12 @@ deleted afterwards.
 For changes you can't fully test automatically (how a voice sounds, highlights on a real site),
 add the steps to check by hand to the manual QA scripts in [docs/PROGRESS.md](docs/PROGRESS.md).
 
+## License of contributions
+
+Open Reader is dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE). Unless you
+say otherwise, any contribution you submit for inclusion is licensed the same way, without any
+additional terms or conditions.
+
 ## Making a pull request
 
 1. Fork the repository and create a branch from `main`.
@@ -164,5 +170,9 @@ add the steps to check by hand to the manual QA scripts in [docs/PROGRESS.md](do
 1. Bump `version` in `package.json` (it becomes the manifest version).
 2. Run the full suite, including `pnpm test:models`.
 3. `pnpm zip` and attach the zip to a GitHub release.
-4. For the Chrome Web Store, upload the zip from `pnpm zip:store`. It is the same build without
-   the manifest `key`, because the store assigns its own ID and rejects uploads that set one.
+4. For the Chrome Web Store, upload the zip from `pnpm zip:store` (`pnpm build:store` builds the
+   same thing unzipped, for checking it first). It differs from the normal build in two ways:
+   - there is no manifest `key`, because the store assigns its own ID and rejects uploads that set
+     one;
+   - voices whose license is for research or personal use only (the Piper lessac voices) are left
+     out.

@@ -108,7 +108,7 @@ export default defineConfig({
     // from any folder, so rebuilds and moves keep their downloaded voices and settings. Only the
     // public half is needed to load unpacked; there is no private key to protect. The Chrome Web
     // Store assigns its own ID and rejects a manifest with a key, so `pnpm zip:store` leaves it out.
-    ...(process.env.OPEN_READER_STORE === '1' ? {} : { key: KEY }),
+    ...(process.env.WXT_OPEN_READER_STORE === '1' ? {} : { key: KEY }),
     description: 'Offline, reliable read-aloud for web pages and PDFs.',
     minimum_chrome_version: '116',
     permissions: [

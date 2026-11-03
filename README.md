@@ -121,7 +121,7 @@ rest work on the page being read, in the side panel and in the PDF reader.
 | Voice                                    | Sounds like                     | Best for                                          |
 | ---------------------------------------- | ------------------------------- | ------------------------------------------------- |
 | **Kokoro**: Heart, Michael, Emma, George | Natural American and British    | Most computers; the default                       |
-| **Piper**: Classic, Medium, LJSpeech     | Clear and steady                | Older or slower computers                         |
+| **Piper**: LJSpeech                      | Clear and steady                | Older or slower computers                         |
 | **System voices**                        | Your computer's built-in voices | Before a voice is downloaded, or as a last resort |
 
 Add or remove voices in Options → **Voices & models**, where **Run benchmark** tells you which one
@@ -162,6 +162,12 @@ or addresses.
 
 Bug reports, ideas and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) explains how
 to build Open Reader from source, how it is put together, and how to run the tests.
+
+## License
+
+Open Reader is free and open source, available under either the [MIT License](LICENSE-MIT) or the
+[Apache License 2.0](LICENSE-APACHE), at your option. The voices and libraries it uses have their
+own licenses, listed below.
 
 ## Thanks
 

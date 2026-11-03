@@ -58,6 +58,7 @@ Copy-ready text for each field of the Chrome Web Store developer dashboard. Uplo
 | Marquee promo tile | `docs/store/promo-marquee-1400x560.png`              |
 
 Regenerate both promo tiles with `pnpm promo-tiles` (after `pnpm screenshots` if the UI changed).
+
 **Links:**
 
 - Homepage: https://github.com/developeruche/open-reader

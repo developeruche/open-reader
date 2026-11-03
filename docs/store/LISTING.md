@@ -49,13 +49,15 @@ Copy-ready text for each field of the Chrome Web Store developer dashboard. Uplo
 
 **Graphics:**
 
-| Asset            | File                                                 |
-| ---------------- | ---------------------------------------------------- |
-| Icon (128×128)   | `public/icon/128.png`                                |
-| Screenshot 1     | `docs/images/web.png` (1280×800): reading an article |
-| Screenshot 2     | `docs/images/pdf.png` (1280×800): reading a PDF      |
-| Small promo tile | `docs/store/promo-small-440x280.png`                 |
+| Asset              | File                                                 |
+| ------------------ | ---------------------------------------------------- |
+| Icon (128×128)     | `public/icon/128.png`                                |
+| Screenshot 1       | `docs/images/web.png` (1280×800): reading an article |
+| Screenshot 2       | `docs/images/pdf.png` (1280×800): reading a PDF      |
+| Small promo tile   | `docs/store/promo-small-440x280.png`                 |
+| Marquee promo tile | `docs/store/promo-marquee-1400x560.png`              |
 
+Regenerate both promo tiles with `pnpm promo-tiles` (after `pnpm screenshots` if the UI changed).
 **Links:**
 
 - Homepage: https://github.com/developeruche/open-reader

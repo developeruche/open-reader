@@ -137,6 +137,7 @@ Other suites:
 | `pnpm quality`        | Scores those recordings with speech recognition (needs uv)                                          |
 | `pnpm fixtures`       | Regenerates the PDF fixtures and their golden reading order                                         |
 | `pnpm screenshots`    | Retakes `docs/images/*.png` with the real Kokoro voice (after `pnpm build:test` and `models:fetch`) |
+| `pnpm promo-tiles`    | Redraws the Chrome Web Store promo tiles in `docs/store/`                                           |
 | `pnpm licenses:check` | Checks every dependency against the license allowlist                                               |
 
 The E2E and model tests build the extension in test mode (`output/chrome-mv3-test`), which adds

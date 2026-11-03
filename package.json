@@ -31,7 +31,8 @@
     "quality": "uv run --project quality --python 3.12 python quality/asr_qa.py",
     "fixtures": "tsx scripts/make-fixtures.ts",
     "budgets": "tsx scripts/check-budgets.ts",
-    "screenshots": "tsx scripts/screenshots.ts"
+    "screenshots": "tsx scripts/screenshots.ts",
+    "promo-tiles": "tsx scripts/promo-tiles.ts"
   },
   "dependencies": {
     "@diffusionstudio/piper-wasm": "1.0.0",
